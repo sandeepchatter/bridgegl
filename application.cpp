@@ -408,7 +408,7 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 	gtkw.setfontface(cr, "FreeMono", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	gtkw.drawtext(cr, 855., 775., (char*)time_str[4].c_str(), 300);
 	gtkw.setfontface(cr, "LMSans10", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-	gtkw.drawtext(cr, 840., 770., ":", 300);
+	gtkw.drawtext(cr, 840., 770., ":", 300);//
 	
 	//show date and year
 	gtkw.setfontface(cr, "Helvetica", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
