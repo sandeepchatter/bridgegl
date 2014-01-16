@@ -1,0 +1,243 @@
+* POLO
+PRIMITIVES USED: circles
+A random assortment of hollow circles. Press the
+'Change' button to alter their arrangement.
+--
+cairo_save(cr);
+gtkw.setlinewidth(cr, gtkw.user2context_x(15) );
+for ( int i = 0; i < 25; i++ )
+{
+   gtkw.setcolor(cr, 0.4, 0.4, 0.4, 1);
+   gtkw.drawarc( cr, xcen[i]+2, ycen[i]+2, 25, 0, 360 );
+   gtkw.setcolor(cr, red[i], green[i], blue[i], alpha[i] );
+   gtkw.drawarc( cr, xcen[i], ycen[i], 25, 0, 360 );
+}
+cairo_restore(cr);
+--
+The arrays are assigned new values at start
+and when the 'Change' button is pressed.
+* END POLO
+
+* DONUT
+PRIMITIVES USED: ellipses
+A donut shape drawn to demonstrate the use of
+cairo_rotate() and drawellipticarc().
+--
+gint i;
+gtkw.translate_coordinates(cr, 550., 170.);
+gtkw.setcolor(cr, 0.992157, 0.42353, 0, 1);
+gtkw.setlinewidth(cr, 1);
+gtkw.setlinestyle(cr, 0);
+for (i = 0; i < 36; i++)
+{
+   cairo_save(cr);
+   cairo_rotate(cr, i*M_PI/36);
+   gtkw.drawellipticarc(cr, 0, 0, 120, 36, 0, 360);
+   cairo_restore(cr);
+}
+gtkw.translate_coordinates(cr, -550., -170.);
+--
+* END DONUT
+
+* PATTERN
+Demonstates the use of cairo_pattern_create_* to
+create gradients on the canvas.
+--
+gtkw.translate_coordinates(cr, 40, 630 );
+cairo_pattern_t *pat;
+pat = cairo_pattern_create_linear (gtkw.user2context_x(0.0), gtkw.user2context_y(0.0),  
+                                   gtkw.user2context_x(256), gtkw.user2context_y(256) );
+cairo_pattern_add_color_stop_rgba (pat, 1, 1, 1, 1, 1);
+cairo_pattern_add_color_stop_rgba (pat, 0.5, 0.9, 0.6, 0.3, 1);
+cairo_pattern_add_color_stop_rgba (pat, 0, 1, 1, 1, 1);
+cairo_rectangle (cr, gtkw.user2context_x(0.0), gtkw.user2context_y(0.0),  
+                     gtkw.user2context_x(256), gtkw.user2context_y(256) ) ;
+cairo_set_source (cr, pat);
+cairo_fill (cr);
+cairo_pattern_destroy (pat);
+pat = cairo_pattern_create_radial ( gtkw.user2context_x(115.2), gtkw.user2context_y(102.4), 
+                                    gtkw.user2context_x(25.6), gtkw.user2context_x(102.4), 
+                                    gtkw.user2context_y(102.4), gtkw.user2context_x(128.0) );
+cairo_pattern_add_color_stop_rgba (pat, 0, 0.9, 0.6, 0.3, 1);
+cairo_pattern_add_color_stop_rgba (pat, 1, 0, 0, 0, 1);
+cairo_set_source (cr, pat);
+gtkw.fillarc (cr, 128.0, 128.0, 76.8, 0, 360);
+cairo_pattern_destroy (pat);
+gtkw.translate_coordinates(cr, -40, -630 );
+--
+* END PATTERN
+
+* SHADOWTEXT
+Demonstates the creation of custom shadow text
+--
+gtkw.setfontface (cr, "Georgia", CAIRO_FONT_SLANT_NORMAL,
+                    CAIRO_FONT_WEIGHT_BOLD);
+gtkw.setfontsize (cr, 60.0);
+gtkw.setcolor (cr, 0.4, 0.4, 0.4, 1);
+gtkw.drawtext( cr, 40, 60., "BridgeGL", 1000);
+gtkw.setcolor (cr, 0.1, 0.65, 0.77, 1);
+gtkw.drawtext( cr, 37, 57, "BridgeGL", 1000)
+--
+* END SHADOWTEXT
+
+* LINES
+PRIMITIVES USED: lines
+Drawing lines of different styles and widths
+--
+gtkw.setcolor(cr, 0,0,0,1);
+gtkw.setlinestyle(cr, 0);
+gtkw.setlinewidth(cr,2);
+gtkw.drawline(cr, 40, 450, 340, 450);
+gtkw.setlinewidth(cr,4);
+gtkw.drawline(cr, 40, 470, 340, 470);
+gtkw.setlinewidth(cr,8);
+gtkw.drawline(cr, 40, 490, 340, 490);
+gtkw.setlinewidth(cr,16);
+gtkw.drawline(cr, 40, 510, 340, 510);
+gtkw.setlinewidth(cr,4);
+double dashes[4] = {5., 2., 9, 2};
+gtkw.setlinestyle(cr, 4, dashes);
+gtkw.drawline(cr, 40, 530, 340, 530);
+double dashes2[2] = {4., 1.};
+gtkw.setlinestyle(cr, 2, dashes2);
+gtkw.drawline(cr, 40, 545, 340, 545);
+double dashes3[4] = {7., 3., 2., 3.};
+gtkw.setlinestyle(cr, 4, dashes3);
+gtkw.drawline(cr, 40, 560, 340, 560);
+double dashes4[2] = {5, 5};
+gtkw.setlinestyle(cr, 2, dashes4);
+gtkw.drawline(cr, 40, 575, 340, 575);
+--
+* END LINES
+
+* FONTS
+Drawing fonts of different styles. All fonts recognized
+by the system are supported.
+--
+gtkw.setcolor(cr, 0, 0, 0, 1);
+gtkw.setfontsize(cr, 8);
+gtkw.setfontface(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.drawtext(cr, 690., 40., "Sans 8 point Normal", 500);
+gtkw.setfontsize(cr, 16);
+gtkw.drawtext(cr, 690., 60., "Sans 16 point Normal", 500);
+gtkw.setfontsize(cr, 24);
+gtkw.drawtext(cr, 690., 85., "Sans 24 point Normal", 500);
+gtkw.setfontsize(cr, 26);
+gtkw.setfontface(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_BOLD);
+gtkw.drawtext(cr, 690., 115., "Sans 26 point Bold", 500);
+gtkw.setfontsize(cr, 20);
+gtkw.setfontface(cr, "Verdana", CAIRO_FONT_SLANT_NORMAL,
+                                CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.drawtext(cr, 690., 140., "Verdana 20 point Normal", 500);
+gtkw.setfontface(cr, "Georgia", CAIRO_FONT_SLANT_ITALIC,
+                                CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.drawtext(cr, 690., 165., "Georgia 20 point Italic", 500);
+gtkw.setfontface(cr, "Serif", CAIRO_FONT_SLANT_NORMAL,
+                              CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.drawtext(cr, 690., 190., "Serif 20 point Normal", 500);
+gtkw.setfontface(cr, "Monospace", CAIRO_FONT_SLANT_NORMAL,
+                                  CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.drawtext(cr, 690., 210., "Monospace 20 point Normal", 500);
+gtkw.setfontsize(cr, 40);
+gtkw.drawtext(cr, 690., 245., "Monospace 40", 500);
+gtkw.setfontface(cr, "Serif", CAIRO_FONT_SLANT_NORMAL,
+                              CAIRO_FONT_WEIGHT_BOLD);
+gtkw.drawtext(cr, 690., 280., "Serif 40 Bold", 500);
+--
+* END FONTS
+
+* RECTANGLES
+PRIMITIVES USED: rectangles
+A random assortment of hollow rectangles. Press the
+'Change' button to alter their arrangement.
+--
+gtkw.setlinewidth(cr, gtkw.user2context_x(15) );
+for( int i = 0; i < 20; i++ )
+{
+   cairo_save(cr);
+   gtkw.translate_coordinates(cr, ycen[i]+330, xcen[i]+290 );
+   cairo_rotate(cr, i*M_PI/16);
+   gtkw.setcolor(cr, 0.2, 0.2, 0.2, 1);
+   gtkw.drawrect(cr, -23, -23, 27, 27);
+   // To create different colors, use {1-red, 1-green, 1-blue}
+   //  instead of the {red, green, blue} as used in polo. 
+   gtkw.setcolor(cr, 1-red[i], 1-green[i], 1-blue[i], 1);
+   gtkw.drawrect(cr, -25, -25, 25, 25);
+   cairo_restore(cr);
+}
+--
+The arrays are assigned new values at start
+and when the 'Change' button is pressed.
+* END RECTANGLES
+
+* SECTORS
+PRIMITIVES USED: arcs
+Using fillarc() with different random colors to draw
+a complete circle.
+--
+gtkw.setcolor(cr, 0.2, 0.2, 0.2, 1);
+gtkw.fillarc(cr, 892, 462, 110, 0, 360);
+for( int i = 0; i < 8; i++ )
+{
+   gtkw.setcolor(cr, red[i*3], green[i*3], blue[i*3], 1);
+   gtkw.fillarc(cr, 890, 460, 110, i*45, (i+1)*45);
+}
+--
+To change the colors, press the 'Change' button on the
+sidebar. 
+* END SECTORS
+
+* CLOCK
+A stylish clock widget to demonstrate calling a function
+repeatedly, and showing progress.
+--
+double seconds_angle = atoi(time_str[5].c_str())*6.0;
+gtkw.setlinewidth(cr, 3);
+if (seconds_angle != 0)
+{
+    gtkw.setcolor(cr, red[c_index], blue[c_index], green[c_index], 0.4);
+    gtkw.drawarc(cr, 850, 750., 110, seconds_angle-90, 360-90);
+}
+else
+    seconds_angle = 360;
+
+gtkw.setcolor(cr, red[c_index], blue[c_index], green[c_index], 1);
+gtkw.drawarc(cr, 850, 750., 110, 0-90, seconds_angle-90);
+gtkw.setfontsize(cr, 78);
+gtkw.setfontface(cr, "Helvetica", CAIRO_FONT_SLANT_NORMAL,
+                                  CAIRO_FONT_WEIGHT_BOLD);
+gtkw.drawtext(cr, 750., 775., (char*)time_str[3].c_str(), 300);
+gtkw.setfontsize(cr, 84);
+gtkw.setfontface(cr, "FreeMono", CAIRO_FONT_SLANT_NORMAL,
+                                 CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.drawtext(cr, 855., 775., (char*)time_str[4].c_str(), 300);
+gtkw.setfontface(cr, "LMSans10", CAIRO_FONT_SLANT_NORMAL,
+                                 CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.drawtext(cr, 840., 770., ":", 300);
+--
+The color of the clock changes when the 'Change' button on the
+sidebar is pressed.
+* END CLOCK
+
+* DATE
+A simple date widget.
+--
+gtkw.setfontface(cr, "Helvetica", CAIRO_FONT_SLANT_NORMAL,
+                                  CAIRO_FONT_WEIGHT_BOLD);
+gtkw.setfontsize(cr, 100);
+gtkw.drawtext(cr, 360., 840., (char*)time_str[2].c_str(), 300);
+gtkw.setfontsize(cr, 56);
+gtkw.drawtext(cr, 474., 840., 
+             (char*)time_str[6].substr(0,4).c_str(), 700);
+gtkw.setfontface(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+                             CAIRO_FONT_WEIGHT_NORMAL);
+gtkw.setfontsize(cr, 70);
+gtkw.drawtext(cr, 360., 765., month[time_str[1]], 700);
+gtkw.setfontsize(cr, 32);
+gtkw.drawtext(cr, 474., 795., day[time_str[0]], 700);
+--
+The font color changes when the 'Change' button on the
+sidebar is pressed.
+* END DATE

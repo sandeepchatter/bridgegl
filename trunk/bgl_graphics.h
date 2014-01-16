@@ -53,6 +53,7 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #define SCALE_TEXT
 #define TOOLBAR
 #define MENU_BAR
+//#define EFFECTS
 //#define UNDECORATED_DIALOG
 
 #define CONV_DEG_TO_RAD 0.01745329252  // pi/180
@@ -90,7 +91,6 @@ class gtk_win
 {
 	string name, version;
 	
-	string access_key;
 	cairo_surface_t* cs;
 	cairo_t* cr;
 	
@@ -120,6 +120,11 @@ class gtk_win
 	double scroll_zoom_in_multiplier, scroll_zoom_out_multiplier;
 	double translate_u_factor, translate_d_factor, translate_l_factor, translate_r_factor;
 	double translate_u_value, translate_d_value, translate_l_value, translate_r_value;
+	
+	// to animate zoom
+	double num_frames, current_frame;
+	double tf_xleft, tf_xright, tf_ytop, tf_ybottom;
+	double del_xleft, del_xright, del_ytop, del_ybottom;
 	
 	// GtkSpin buttons for preferences
 	GtkWidget *zoomin_spinner, *zoomout_spinner;
@@ -291,13 +296,13 @@ class gtk_win
 	
 	// image maps
 	vector<image_map*> image_maps;
-	void toggle_image_map_visibility(string key);
+	void toggle_image_map_visibility( ); //requires restricted access in future
 	
 	// for fullscreen
-	void toggle_fullscreen(string key);
+	void toggle_fullscreen( ); //requires restricted access in future
 	
 	// to check for window state event
-	void chk_mainwin_state_event(GdkEventWindowState *event, string key);
+	void chk_mainwin_state_event(GdkEventWindowState *event); //requires restricted access in future
 	
 	//constructor
 	gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height );
@@ -327,7 +332,7 @@ class gtk_win
 	//functions for UI display
 	void update_statusbar_message_with( char* msg );
 	void add_button_to_sidepane( style_button *new_button );
-	void open_preferences_dialouge( string key );
+	void open_preferences_dialouge(); //requires restricted access in future
 
 	double get_zoom_in_factor();
 	double get_zoom_out_factor();
@@ -374,9 +379,12 @@ class gtk_win
 	void drawtextballoon(cairo_t* cr, double user_x1, double user_y1,  double tolerance, vector<string>* arr, int fontsize, 
 	                     char* fontface, double *rgb_border, double *rgba_fill,  double *rgb_text);
 	
+	//animations
+	gboolean animate_zoom();
+	
 	// functions for saving in a particular format
 	void save_as();
-	void save_as_file_type(GtkWidget *widget, string key);
+	void save_as_file_type(GtkWidget *widget); //requires restricted access in future
 	
 	// Public functions for registering user callbacks for mouse motion, mouse button press 
 	// and keyboard press
@@ -391,42 +399,42 @@ class gtk_win
 	void line2arr (char* str, vector<string>* arr, char* tokenizer); 
 	
 	// public accessibility of restricted functions/variables by accessibility-key
-	void turn_on_window_zoom( string key );
-	void update_statusbar( string key );
+	void turn_on_window_zoom( ); //requires restricted access in future
+	void update_statusbar( ); //requires restricted access in future
 	
 	//signal/event callbacks, restricted access
-	gboolean mainwin_expose_event (GdkEventExpose *event, string key);
-	gboolean canvas_expose_event  (GdkEventExpose *event, string key);
-	void     mainwin_scroll_event (GdkEventScroll* event, string key);
-	gboolean mainwin_configure_event (GdkEventConfigure *event, string key);
-	gboolean canvas_configure_event  (GdkEventConfigure *event, string key);
-	gboolean mainwin_key_press_event (GdkEventKey *event, string key);
-	gboolean mainwin_mouse_move_event(GdkEventMotion *event, string key);
-	gboolean mainwin_mouse_button_event (GdkEventButton *event, string key);
+	gboolean mainwin_expose_event (GdkEventExpose *event); //requires restricted access in future
+	gboolean canvas_expose_event  (GdkEventExpose *event); //requires restricted access in future
+	void     mainwin_scroll_event (GdkEventScroll* event); //requires restricted access in future
+	gboolean mainwin_configure_event (GdkEventConfigure *event); //requires restricted access in future
+	gboolean canvas_configure_event  (GdkEventConfigure *event); //requires restricted access in future
+	gboolean mainwin_key_press_event (GdkEventKey *event); //requires restricted access in future
+	gboolean mainwin_mouse_move_event(GdkEventMotion *event); //requires restricted access in future
+	gboolean mainwin_mouse_button_event (GdkEventButton *event); //requires restricted access in future
 	
 	//toolbar functionalities, restricted access
-	void toolbar_zoom_in( string key );
-	void toolbar_zoom_out( string key );
-	void show_about_dialouge( string key );
+	void toolbar_zoom_in( ); //requires restricted access in future
+	void toolbar_zoom_out( ); //requires restricted access in future
+	void show_about_dialouge( ); //requires restricted access in future
 	
 	// shear and rotate transforms
-	void increase_horizontal_shear(string key);
-	void decrease_horizontal_shear(string key);
-	void increase_vertical_shear(string key);
-	void decrease_vertical_shear(string key);
-	void rotate_clockwise(string key);
-	void rotate_anticlockwise(string key);
+	void increase_horizontal_shear( ); //requires restricted access in future
+	void decrease_horizontal_shear( ); //requires restricted access in future
+	void increase_vertical_shear( ); //requires restricted access in future
+	void decrease_vertical_shear( ); //requires restricted access in future
+	void rotate_clockwise( ); //requires restricted access in future
+	void rotate_anticlockwise( ); //requires restricted access in future
 	
 	// show properties and stats
-	void show_properties_dialog( string key );
-	void show_statistics_dialog( string key );
+	void show_properties_dialog( ); //requires restricted access in future
+	void show_statistics_dialog( ); //requires restricted access in future
 	
 	// update preferences
-	void update_values_for_zoom_translate_shear(string key);
-	void toggle_translate_lock_state( string key );
-	void lock_translate_spinners( GtkSpinButton *spinbutton, string key );
-	void toggle_shear_lock_state( string key );
-	void lock_shear_spinners( GtkSpinButton *spinbutton, string key );
+	void update_values_for_zoom_translate_shear( ); //requires restricted access in future
+	void toggle_translate_lock_state( ); //requires restricted access in future
+	void lock_translate_spinners( GtkSpinButton *spinbutton ); //requires restricted access in future
+	void toggle_shear_lock_state( ); //requires restricted access in future
+	void lock_shear_spinners( GtkSpinButton *spinbutton ); //requires restricted access in future
 };
 
 class image_map
@@ -478,7 +486,6 @@ class image_map
 
 class style_button
 {
-	string access_id;
 	GtkWidget *button;	
 	GtkWidget *button_label;
 	string button_text;
@@ -491,9 +498,9 @@ class style_button
 	style_button( string _button_text, button_fcn _act_on_button_press, gtk_win *_application );
 	
 	void set_desc(string _desc);
-	void act_on_enter_button_signal( string key );
-	void act_on_leave_button_signal( string key );
-	GtkWidget* get_widget(string key);
+	void act_on_enter_button_signal( ); //requires restricted access in future
+	void act_on_leave_button_signal( ); //requires restricted access in future
+	GtkWidget* get_widget( ); //requires restricted access in future
 };
 
 class bgl_stats

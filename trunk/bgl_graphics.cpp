@@ -22,290 +22,259 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #include <math.h>
 #include <string.h>
 
-static string accessibility_key;
-//string accessibility_key = "ty";
-static void generate_accessibility_key( int length );
-
 static gboolean mainwin_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	return g_win->mainwin_expose_event (event, accessibility_key);
+	return g_win->mainwin_expose_event (event);
 }
 
-gboolean gtk_win::mainwin_expose_event (GdkEventExpose *event, string key)
+gboolean gtk_win::mainwin_expose_event (GdkEventExpose *event)
 {
-	if ( key == access_key )
-	{
-		cairo_t *cr;
-	
-		// get a cairo_t
-		cr = gdk_cairo_create (mainwin->window);
-		
-		// set a clip region for the expose event 
-		cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
-	
-		cairo_clip (cr);
-	
-		cairo_set_source_rgb(cr, 0.82745, 0.8549, 0.88627);
-		//cairo_pattern_t *linpat;
-		//linpat = cairo_pattern_create_linear (0, 0, 600, 600);
-		//cairo_pattern_add_color_stop_rgb (linpat, 1,  0.02745, 0.12157, 0.262745);
-		//cairo_pattern_add_color_stop_rgb (linpat, 0.2,  0.596, 0.7647, 0.8353);
-		//cairo_set_source (cr, linpat);
-		cairo_paint(cr);
+	cairo_t *cr;
 
-		cairo_destroy (cr);
-		 stats->count_expose_event++;
-	}
-	else
-	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::mainwin_expose_event() \n");
-	}
+	// get a cairo_t
+	cr = gdk_cairo_create (mainwin->window);
+	
+	// set a clip region for the expose event 
+	cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
+
+	cairo_clip (cr);
+
+	cairo_set_source_rgb(cr, 0.82745, 0.8549, 0.88627);
+	//cairo_pattern_t *linpat;
+	//linpat = cairo_pattern_create_linear (0, 0, 600, 600);
+	//cairo_pattern_add_color_stop_rgb (linpat, 1,  0.02745, 0.12157, 0.262745);
+	//cairo_pattern_add_color_stop_rgb (linpat, 0.2,  0.596, 0.7647, 0.8353);
+	//cairo_set_source (cr, linpat);
+	cairo_paint(cr);
+
+	cairo_destroy (cr);
+	stats->count_expose_event++;
+	
 	return false;
 }
 
 static gboolean canvas_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	return g_win->canvas_expose_event (event, accessibility_key);
+	return g_win->canvas_expose_event (event);
 }
 
-gboolean gtk_win::canvas_expose_event (GdkEventExpose *event, string key)
+gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 {
-	if ( key == access_key )
+	cairo_t *cr;
+
+	stats->draw_start_fcn();
+	stats->reset_counts(); 
+	// get a cairo_t
+	cr = gdk_cairo_create (canvas->window);
+	this->cr = cr;
+	
+	// set a clip region for the expose event 
+	cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
+	cairo_clip (cr);
+
+	cairo_identity_matrix(cr);
+	user_tx = 0; user_ty = 0;
+	cairo_translate (cr, user2win_x(0), user2win_y(0) );
+	cairo_save(cr);
+	
+	// paint the canvas as per transformed and rotated coordinates
+	paint_canvas(cr);
+
+	cairo_restore(cr);
+
+	if (in_window_zoom_mode)
 	{
-		cairo_t *cr;
-	
-		stats->draw_start_fcn();
-		stats->reset_counts(); 
-		// get a cairo_t
-		cr = gdk_cairo_create (canvas->window);
-		this->cr = cr;
-		
-		// set a clip region for the expose event 
-		cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
-		cairo_clip (cr);
-	
+		//cairo_identity_matrix(cr);
+		//user_tx = 0; user_ty = 0;
+		//cairo_translate (cr, user2win_x(0), user2win_y(0) );
+		cairo_set_source_rgba(cr, 0.882353, 0.67843, 0.12549, 0.4);
+		fillrect( cr, z_xleft, z_ytop, z_xright, z_ybottom);
+		cairo_set_source_rgb(cr, 0.70980, 0.572549, 0.207843);
+		cairo_set_line_width(cr, 2);
+		drawrect( cr, z_xleft, z_ytop, z_xright, z_ybottom);
+	}
+	#ifdef BOUNDING_BOX
+		cairo_save (cr);
+		cairo_set_operator(cr, CAIRO_OPERATOR_XOR); 
 		cairo_identity_matrix(cr);
-		user_tx = 0; user_ty = 0;
-		cairo_translate (cr, user2win_x(0), user2win_y(0) );
-		cairo_save(cr);
-		
-		// paint the canvas as per transformed and rotated coordinates
-		paint_canvas(cr);
-	
-		cairo_restore(cr);
-	
-		if (in_window_zoom_mode)
-		{
-			//cairo_identity_matrix(cr);
-			//user_tx = 0; user_ty = 0;
-			//cairo_translate (cr, user2win_x(0), user2win_y(0) );
-			cairo_set_source_rgba(cr, 0.882353, 0.67843, 0.12549, 0.4);
-			fillrect( cr, z_xleft, z_ytop, z_xright, z_ybottom);
-			cairo_set_source_rgb(cr, 0.70980, 0.572549, 0.207843);
-			cairo_set_line_width(cr, 2);
-			drawrect( cr, z_xleft, z_ytop, z_xright, z_ybottom);
-		}
-		#ifdef BOUNDING_BOX
-			cairo_save (cr);
-			cairo_set_operator(cr, CAIRO_OPERATOR_XOR); 
-			cairo_identity_matrix(cr);
-			cairo_set_source_rgb(cr, 0, 0, 0);
-			cairo_set_line_width(cr, 2);
-			cairo_move_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ytop) );
-			cairo_line_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ybottom) );
-			cairo_line_to(cr, user2win_x(saved_xright), user2win_y(saved_ybottom) );
-			cairo_line_to(cr, user2win_x(saved_xright), user2win_y(saved_ytop) );
-			cairo_line_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ytop) );
-			cairo_stroke(cr);
-			cairo_restore (cr);
-		#endif
-	
-		#ifdef VIRTUAL_SCROLLBARS
-			draw_virtual_scrollbars();
-		#endif
-		cairo_destroy (cr);
-		 stats->draw_end_fcn();
-		 stats->count_redraw++;
-	}
-	else
-	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::canvas_expose_event() \n");
-	}
+		cairo_set_source_rgb(cr, 0, 0, 0);
+		cairo_set_line_width(cr, 2);
+		cairo_move_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ytop) );
+		cairo_line_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ybottom) );
+		cairo_line_to(cr, user2win_x(saved_xright), user2win_y(saved_ybottom) );
+		cairo_line_to(cr, user2win_x(saved_xright), user2win_y(saved_ytop) );
+		cairo_line_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ytop) );
+		cairo_stroke(cr);
+		cairo_restore (cr);
+	#endif
+
+	#ifdef VIRTUAL_SCROLLBARS
+		draw_virtual_scrollbars();
+	#endif
+	cairo_destroy (cr);
+	stats->draw_end_fcn();
+	stats->count_redraw++;
+		 
 	return false;
 }
 
 static void gtk_win_scroll(GtkWidget *widget, GdkEventScroll* event, gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->mainwin_scroll_event (event, accessibility_key);
+	g_win->mainwin_scroll_event (event );
 }
 
-void gtk_win::mainwin_scroll_event (GdkEventScroll* event, string key)
+void gtk_win::mainwin_scroll_event (GdkEventScroll* event)
 {
-	if ( key == access_key )
+	double userx = win2user_x(event->x);
+	double usery = win2user_y(event->y);
+
+	double x_left_margin   = userx - xleft;
+	double x_right_margin  = xright - userx;
+	double y_top_margin    = usery - ytop;
+	double y_bottom_margin = ybottom - usery;
+
+	if ( event->direction == GDK_SCROLL_UP )
 	{
-		double userx = win2user_x(event->x);
-		double usery = win2user_y(event->y);
-	
-		double x_left_margin   = userx - xleft;
-		double x_right_margin  = xright - userx;
-		double y_top_margin    = usery - ytop;
-		double y_bottom_margin = ybottom - usery;
-	
-		if ( event->direction == GDK_SCROLL_UP )
-		{
-			xleft   += x_left_margin*scroll_zoom_in_multiplier;
-			xright  -= x_right_margin*scroll_zoom_in_multiplier; 
-			ytop    += y_top_margin*scroll_zoom_in_multiplier; 
-			ybottom -= y_bottom_margin*scroll_zoom_in_multiplier; 
-		}
-		else if ( event->direction == GDK_SCROLL_DOWN )
-		{
-			xleft   -= x_left_margin*scroll_zoom_out_multiplier;
-			xright  += x_right_margin*scroll_zoom_out_multiplier; 
-			ytop    -= y_top_margin*scroll_zoom_out_multiplier;
-			ybottom += y_bottom_margin*scroll_zoom_out_multiplier;
-		}
-	
-		update_statusbar_msg();
-		focus();
-		 stats->count_scroll_events++;
+		xleft   += x_left_margin*scroll_zoom_in_multiplier;
+		xright  -= x_right_margin*scroll_zoom_in_multiplier; 
+		ytop    += y_top_margin*scroll_zoom_in_multiplier; 
+		ybottom -= y_bottom_margin*scroll_zoom_in_multiplier; 
 	}
-	else
+	else if ( event->direction == GDK_SCROLL_DOWN )
 	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::mainwin_scroll_event() \n");
+		xleft   -= x_left_margin*scroll_zoom_out_multiplier;
+		xright  += x_right_margin*scroll_zoom_out_multiplier; 
+		ytop    -= y_top_margin*scroll_zoom_out_multiplier;
+		ybottom += y_bottom_margin*scroll_zoom_out_multiplier;
 	}
+
+	update_statusbar_msg();
+	focus();
+	stats->count_scroll_events++;
 }
 
 static gboolean gtk_mainwin_configure (GtkWidget *widget, GdkEventConfigure *event, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	return g_win->mainwin_configure_event (event, accessibility_key);
+	return g_win->mainwin_configure_event (event);
 }
 
-gboolean gtk_win::mainwin_configure_event (GdkEventConfigure *event, string key)
+gboolean gtk_win::mainwin_configure_event (GdkEventConfigure *event)
 {
-	if ( key == access_key )
-	{
-		win_current_width = event->width;
-		win_current_height = event->height;
-		 stats->count_configure_event++;
-	}
-	else
-	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::mainwin_configure_event() \n");
-	}
+	win_current_width = event->width;
+	win_current_height = event->height;
+	stats->count_configure_event++;
 	return false;
 }
 
 static gboolean gtk_canvas_configure (GtkWidget *widget, GdkEventConfigure *event, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	return g_win->canvas_configure_event (event, accessibility_key);
+	return g_win->canvas_configure_event (event );
 }
 
-gboolean gtk_win::canvas_configure_event  (GdkEventConfigure *event, string key)
+gboolean gtk_win::canvas_configure_event  (GdkEventConfigure *event)
 {
-	if ( key == access_key )
-	{
-		canvas_width = event->width;
-		canvas_height = event->height;
-		update_transform();
-	}
-	else
-	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::canvas_configure_event() \n");
-	}
+	canvas_width = event->width;
+	canvas_height = event->height;
+	update_transform();
 	return false;
 }
 
 static gboolean act_on_key_press (GtkWidget *widget, GdkEventKey *event,  gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	return g_win->mainwin_key_press_event (event, accessibility_key);
+	return g_win->mainwin_key_press_event (event);
 }
 
-gboolean gtk_win::mainwin_key_press_event (GdkEventKey *event, string key)
+gboolean gtk_win::mainwin_key_press_event (GdkEventKey *event)
 {
-	if ( key == access_key )
-	{
-		switch (event->keyval)
-		{		
-			/*case GDK_s:
-			if (event->state & GDK_CONTROL_MASK)
-			{
-				save_as();
-			}
-			break;*/
-		
-			case GDK_Escape:
-			restore_to_onset_view(1);
-			update_statusbar_msg();
-			break;
-		
-			case GDK_Up:
-			translate_up();
-			break;
-		
-			case GDK_Down:
-			translate_down();
-			break;
-		
-			case GDK_Left:
-			translate_left();
-			break;
-		
-			case GDK_Right:
-			translate_right();
-			break;
-		
-			case 0xffc2:
-			redraw();
-			break;
-		
-			case 0x06d:
-			toggle_image_map_visibility(access_key);
-			break;
-		
-			case 0x066:
-			toggle_fullscreen(access_key);
-			break;
-		
-			case 0xffbe:
-			show_about_dialouge(access_key);
-			break;
-		
-			default:
-			break;
-		}
-	
-		if (user_key_press_active)
+	switch (event->keyval)
+	{		
+		/*case GDK_s:
+		if (event->state & GDK_CONTROL_MASK)
 		{
-			user_key_press_method(event);
+			save_as();
 		}
-		 stats->count_keypress_event++;
-		return FALSE; 
+		break;*/
+	
+		case GDK_Escape:
+		restore_to_onset_view(1);
+		update_statusbar_msg();
+		break;
+	
+		case GDK_Up:
+		translate_up();
+		break;
+	
+		case GDK_Down:
+		translate_down();
+		break;
+	
+		case GDK_Left:
+		translate_left();
+		break;
+	
+		case GDK_Right:
+		translate_right();
+		break;
+	
+		case 0xffc2:
+		redraw();
+		break;
+	
+		case 0x06d:
+		toggle_image_map_visibility( );
+		break;
+	
+		case 0x066:
+		toggle_fullscreen();
+		break;
+	
+		case 0xffbe:
+		show_about_dialouge();
+		break;
+	
+		default:
+		break;
 	}
-	else
+
+	if (user_key_press_active)
 	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::mainwin_key_press_event() \n");
-		return false;
+		user_key_press_method(event);
 	}
+	 stats->count_keypress_event++;
+	return FALSE; 
 }
 
 static gboolean mouse_position_tracker(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	return g_win->mainwin_mouse_move_event (event, accessibility_key);
+	return g_win->mainwin_mouse_move_event (event );
 }
 
-gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event, string key)
+gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event)
 {
-	if ( key == access_key )
-	{	
-		#ifdef FOLLOW_MOUSE_POINTER
+	#ifdef FOLLOW_MOUSE_POINTER
+		GdkModifierType state;
+
+		if (event->is_hint)
+			gdk_window_get_pointer (event->window, &worldx, &worldy, &state);
+		else
+		{
+			worldx = event->x;
+			worldy = event->y;
+		}
+
+		update_statusbar_msg();
+	#endif
+
+	if (in_window_zoom_mode)
+	{
+		#ifndef FOLLOW_MOUSE_POINTER
 			GdkModifierType state;
 
 			if (event->is_hint)
@@ -319,205 +288,149 @@ gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event, string key)
 			update_statusbar_msg();
 		#endif
 	
-		if (in_window_zoom_mode)
-		{
-			#ifndef FOLLOW_MOUSE_POINTER
-				GdkModifierType state;
-
-				if (event->is_hint)
-					gdk_window_get_pointer (event->window, &worldx, &worldy, &state);
-				else
-				{
-					worldx = event->x;
-					worldy = event->y;
-				}
-
-				update_statusbar_msg();
-			#endif
+		z_xright  = win2user_x( event->x );
+		z_ybottom = win2user_y( event->y );
 		
-			z_xright  = win2user_x( event->x );
-			z_ybottom = win2user_y( event->y );
-			
-			/* The follwoing code segment supposedly should mark the zooming rectnagle
-			as dirty so that only the area within it is redrawn. but it is not working, so 
-			commented out.
-			cr = gdk_cairo_create( canvas->window );
-			cs = cairo_get_target (cr);
-			cairo_surface_mark_dirty_rectangle (cs, min(z_xleft, z_xright), min(z_ytop, z_ybottom), 
-			fabs(z_xleft - z_xright)*xmult, fabs(z_ytop - z_ybottom)*ymult );
-			//cairo_surface_destroy(cs);
-			cairo_destroy(cr);*/
-			
-			gtk_widget_queue_draw_area ( canvas,  tx, ty, canvas_width, canvas_height);
-		}
-	
-		if (user_mouse_position_active)
-		{
-			user_mouse_pos_method(event);
-		}
-		 stats->count_mousemove_event++;
+		/* The follwoing code segment supposedly should mark the zooming rectnagle
+		as dirty so that only the area within it is redrawn. but it is not working, so 
+		commented out.
+		cr = gdk_cairo_create( canvas->window );
+		cs = cairo_get_target (cr);
+		cairo_surface_mark_dirty_rectangle (cs, min(z_xleft, z_xright), min(z_ytop, z_ybottom), 
+		fabs(z_xleft - z_xright)*xmult, fabs(z_ytop - z_ybottom)*ymult );
+		//cairo_surface_destroy(cs);
+		cairo_destroy(cr);*/
+		
+		gtk_widget_queue_draw_area ( canvas,  tx, ty, canvas_width, canvas_height);
 	}
-	else
+
+	if (user_mouse_position_active)
 	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::mainwin_mouse_move_event() \n");
-		return false;
+		user_mouse_pos_method(event);
 	}
+	stats->count_mousemove_event++;
+
 	return TRUE;
 }
 
 static gboolean mouse_button_callback(GtkWidget *widget, GdkEventButton *event, gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	return g_win->mainwin_mouse_button_event (event, accessibility_key);
+	return g_win->mainwin_mouse_button_event (event);
 }
 
 // function to highlight image maps
 static void highlight_image_maps_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->toggle_image_map_visibility(accessibility_key);
+	g_win->toggle_image_map_visibility();
 }
 
-void gtk_win::toggle_image_map_visibility(string key)
+void gtk_win::toggle_image_map_visibility()
 {
-	if ( key == access_key )
-	{
-		highlight_image_maps = !highlight_image_maps;
-		redraw();
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::toggle_image_map_visibility() \n");
+	highlight_image_maps = !highlight_image_maps;
+	redraw();
 }
 
 // function to toggle_fullscreen
 static void toggle_fullscreen_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->toggle_fullscreen(accessibility_key);
+	g_win->toggle_fullscreen();
 }
 
-void gtk_win::toggle_fullscreen(string key)
+void gtk_win::toggle_fullscreen()
 {
-	if ( key == access_key )
+	make_fullscreen = !make_fullscreen;
+	if ( make_fullscreen )
 	{
-		make_fullscreen = !make_fullscreen;
-		if ( make_fullscreen )
-		{
-			gtk_window_fullscreen(GTK_WINDOW(mainwin) );
-		}
-		else
-		{
-			gtk_window_unfullscreen(GTK_WINDOW(mainwin) );
-			gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), TRUE);
-			gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), FALSE);
-		}
+		gtk_window_fullscreen(GTK_WINDOW(mainwin) );
 	}
 	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::toggle_fullscreen() \n");
+	{
+		gtk_window_unfullscreen(GTK_WINDOW(mainwin) );
+		gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), TRUE);
+		gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), FALSE);
+	}
 }
 
 // to verify that main windows' state changed as desired
 static void chk_mainwin_state_event_fcn(GtkWidget *widget, GdkEventWindowState *event, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->chk_mainwin_state_event(event, accessibility_key);
+	g_win->chk_mainwin_state_event(event);
 }
 
-void gtk_win::chk_mainwin_state_event(GdkEventWindowState *event, string key)
+void gtk_win::chk_mainwin_state_event(GdkEventWindowState *event)
 {
-	if ( key == access_key )
+	// at present checking only for fullscreen and unfullscreen events
+	if ( toolbar_created && make_fullscreen && event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN )
 	{
-		// at present checking only for fullscreen and unfullscreen events
-		if ( toolbar_created && make_fullscreen && event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN )
-		{
-			fprintf(stderr, "Window Fullscreen Successfull \n");
-			gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), FALSE);
-			gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), TRUE);
-		}
-		//else if ( toolbar_created && !make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
-		//{
-		//	fprintf(stderr, "Window Exited Fullscreen\n");
-		//}
-		else if ( toolbar_created && make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
-		{
-			fprintf(stderr, "Window Fullscreen Un-successfull \n");
-		}
+		fprintf(stderr, "Window Fullscreen Successfull \n");
+		gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), FALSE);
+		gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), TRUE);
 	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::chk_mainwin_state_event() \n");
+	//else if ( toolbar_created && !make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
+	//{
+	//	fprintf(stderr, "Window Exited Fullscreen\n");
+	//}
+	else if ( toolbar_created && make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
+	{
+		fprintf(stderr, "Window Fullscreen Un-successfull \n");
+	}
 }
 
 // function to increase or decrease shear
 static void increase_horizontal_shear_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->increase_horizontal_shear(accessibility_key);
+	g_win->increase_horizontal_shear();
 }
-void gtk_win::increase_horizontal_shear(string key)
+void gtk_win::increase_horizontal_shear()
 {
-	if (key == access_key)
-	{
-		horizontal_shear = horizontal_shear + delta_horz_shear;
-		if ( horizontal_shear > MAX_SHEAR )
-			horizontal_shear = MAX_SHEAR;
-		redraw();
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::increase_horizontal_shear() \n");
+	horizontal_shear = horizontal_shear + delta_horz_shear;
+	if ( horizontal_shear > MAX_SHEAR )
+		horizontal_shear = MAX_SHEAR;
+	redraw();
 }
 
 static void decrease_horizontal_shear_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->decrease_horizontal_shear(accessibility_key);
+	g_win->decrease_horizontal_shear();
 }
-void gtk_win::decrease_horizontal_shear(string key)
+void gtk_win::decrease_horizontal_shear()
 {
-	if (key == access_key)
-	{
-		horizontal_shear = horizontal_shear - delta_horz_shear;
-		if ( horizontal_shear < -1*MAX_SHEAR )
-			horizontal_shear = -1*MAX_SHEAR;
-		redraw();
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::decrease_horizontal_shear() \n");
+	horizontal_shear = horizontal_shear - delta_horz_shear;
+	if ( horizontal_shear < -1*MAX_SHEAR )
+		horizontal_shear = -1*MAX_SHEAR;
+	redraw();
 }
 
 static void increase_vertical_shear_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->increase_vertical_shear(accessibility_key);
+	g_win->increase_vertical_shear();
 }
-void gtk_win::increase_vertical_shear(string key)
+void gtk_win::increase_vertical_shear()
 {
-	if (key == access_key)
-	{
-		vertical_shear = vertical_shear + delta_vert_shear;
-		if ( vertical_shear > MAX_SHEAR )
-			vertical_shear = MAX_SHEAR;
-		redraw();
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::increase_vertical_shear() \n");
+	vertical_shear = vertical_shear + delta_vert_shear;
+	if ( vertical_shear > MAX_SHEAR )
+		vertical_shear = MAX_SHEAR;
+	redraw();
 }
 
 static void decrease_vertical_shear_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->decrease_vertical_shear(accessibility_key);
+	g_win->decrease_vertical_shear();
 }
-void gtk_win::decrease_vertical_shear(string key)
+void gtk_win::decrease_vertical_shear()
 {
-	if (key == access_key)
-	{
-		vertical_shear = vertical_shear - delta_vert_shear;
-		if ( vertical_shear < -1*MAX_SHEAR )
-			vertical_shear = -1*MAX_SHEAR;
-		redraw();
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::decrease_vertical_shear() \n");
+	vertical_shear = vertical_shear - delta_vert_shear;
+	if ( vertical_shear < -1*MAX_SHEAR )
+		vertical_shear = -1*MAX_SHEAR;
+	redraw();
 }
 
 //functions to rotate the canvas in clockwise or anticlockwise direction
@@ -558,122 +471,133 @@ void gtk_win::set_xy_translate_and_scale()
 static void rotate_clockwise_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->rotate_clockwise(accessibility_key);
+	g_win->rotate_clockwise();
 }
-void gtk_win::rotate_clockwise(string key)
+void gtk_win::rotate_clockwise()
 {
-	if (key == access_key)
-	{
-		angle_multiplier++;
-		set_xy_translate_and_scale();
-		redraw();
-	}
+	angle_multiplier++;
+	set_xy_translate_and_scale();
+	redraw();
 }
+
 static void rotate_anticlockwise_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->rotate_anticlockwise(accessibility_key);
+	g_win->rotate_anticlockwise();
 }
-void gtk_win::rotate_anticlockwise(string key)
+void gtk_win::rotate_anticlockwise()
 {
-	if (key == access_key)
+	angle_multiplier--;
+	set_xy_translate_and_scale();
+	redraw();
+}
+
+static gboolean animate_zoom_fcn( gpointer data	)
+{
+	gtk_win* g_win = (gtk_win*) data;
+	return g_win->animate_zoom();
+}
+
+gboolean gtk_win::animate_zoom()
+{
+	xleft = xleft + del_xleft;
+	xright = xright + del_xright;
+	ytop = ytop + del_ytop;
+	ybottom = ybottom + del_ybottom;
+	focus();
+	current_frame++;
+	return (current_frame < num_frames);
+} 
+
+gboolean gtk_win::mainwin_mouse_button_event (GdkEventButton *event)
+{
+	double x, y;
+	worldx = event->x;
+	worldy = event->y;
+	x = win2user_x( event->x );
+	y = win2user_y( event->y );
+	bool coming_out_of_window_zoom_mode = false;
+	bool going_into_window_zoom_mode = false;
+	if ( event->type == GDK_BUTTON_PRESS && window_zoom_mode_on ) 
 	{
-		angle_multiplier--;
-		set_xy_translate_and_scale();
-		redraw();
+		in_window_zoom_mode = true;
+		z_xleft = x;
+		z_ytop  = y;
+		// to prevent drawing a rectangle based on
+		// previous xright and ybottom
+		z_xright  = x;
+		z_ybottom = y;
+		
+		going_into_window_zoom_mode = true;
+		
 	}
-}
-
-
-gboolean gtk_win::mainwin_mouse_button_event (GdkEventButton *event, string key)
-{
-	if ( key == access_key )
-	{		
-		double x, y;
-		worldx = event->x;
-		worldy = event->y;
-		x = win2user_x( event->x ); 
-		y = win2user_y( event->y );
-		bool coming_out_of_window_zoom_mode = false;
-		bool going_into_window_zoom_mode = false;
-		if ( event->type == GDK_BUTTON_PRESS && window_zoom_mode_on ) 
-		{
-			in_window_zoom_mode = true;
-			z_xleft = x;
-			z_ytop  = y;
-			// to prevnt drawing a rectangle based on
-			// previous xright and ybottom
-			z_xright  = x;
-			z_ybottom = y;
-			
-			going_into_window_zoom_mode = true;
-			
-		}
-		else if ( event->type == GDK_BUTTON_RELEASE && window_zoom_mode_on)
-		{
-			gtk_toggle_tool_button_set_active(GTK_TOGGLE_TOOL_BUTTON(zoom_window), 0);
-			window_zoom_mode_on = false;
-			in_window_zoom_mode = false;
-			z_xright  = x;
-			z_ybottom = y;
+	else if ( event->type == GDK_BUTTON_RELEASE && window_zoom_mode_on)
+	{
+		gtk_toggle_tool_button_set_active(GTK_TOGGLE_TOOL_BUTTON(zoom_window), 0);
+		window_zoom_mode_on = false;
+		in_window_zoom_mode = false;
+		z_xright  = x;
+		z_ybottom = y;
+		
+		#ifdef EFFECTS
+			tf_xleft   = ((z_xleft < z_xright)?z_xleft:z_xright);
+			tf_xright  = ((z_xleft > z_xright)?z_xleft:z_xright); 
+			tf_ytop    = ((z_ytop < z_ybottom)?z_ytop:z_ybottom);
+			tf_ybottom = ((z_ytop > z_ybottom)?z_ytop:z_ybottom);
+			del_xleft  = (tf_xleft - xleft)/num_frames;
+			del_xright = (tf_xright - xright)/num_frames;
+			del_ytop   = (tf_ytop - ytop)/num_frames;
+			del_ybottom = (tf_ybottom - ybottom)/num_frames;
+			current_frame = 0;
+			cerr<<"del_xleft: "<<del_xleft<<", del_xright:"<<del_xright<<endl;
+			g_timeout_add(25, (GSourceFunc) animate_zoom_fcn, this);
+		#else
 			xleft   = ((z_xleft < z_xright)?z_xleft:z_xright);
 			xright  = ((z_xleft > z_xright)?z_xleft:z_xright); 
 			ytop    = ((z_ytop < z_ybottom)?z_ytop:z_ybottom);
 			ybottom = ((z_ytop > z_ybottom)?z_ytop:z_ybottom);
-			focus();
-			
-			coming_out_of_window_zoom_mode = true;
-		}
-		update_statusbar_msg();
-		
-		if (!going_into_window_zoom_mode && !coming_out_of_window_zoom_mode)
-		{
-			bool to_redraw = false;	
-			for ( unsigned int i = 0; i < image_maps.size(); i++)
-			{
-				to_redraw = to_redraw | image_maps[i]->to_show_info; 
-				to_redraw = to_redraw | image_maps[i]->try_set_event_coordinates(event->x,event->y, this);
-			}
-			if ( to_redraw )
-				redraw();
-		}
+		#endif
+		focus();
+		coming_out_of_window_zoom_mode = true;
+	}
+	update_statusbar_msg();
 	
-		if (user_mouse_press_active && event->type == GDK_BUTTON_PRESS)
-		{
-			user_mouse_button_press_method(event);
-		}
-		 stats->count_mousebuttonpress_event++;
-	}
-	else
+	if (!going_into_window_zoom_mode && !coming_out_of_window_zoom_mode)
 	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::mainwin_mouse_button_event() \n");
-		return false;
+		bool to_redraw = false;	
+		for ( unsigned int i = 0; i < image_maps.size(); i++)
+		{
+			to_redraw = to_redraw | image_maps[i]->to_show_info; 
+			to_redraw = to_redraw | image_maps[i]->try_set_event_coordinates(event->x,event->y, this);
+		}
+		if ( to_redraw )
+			redraw();
 	}
+
+	if (user_mouse_press_active && event->type == GDK_BUTTON_PRESS)
+	{
+		user_mouse_button_press_method(event);
+	}
+	stats->count_mousebuttonpress_event++;
 	
 	return FALSE;
 }
 
-void gtk_win::turn_on_window_zoom( string key )
+void gtk_win::turn_on_window_zoom(  )
 {
-	if ( key == access_key)
-		window_zoom_mode_on = true;
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::turn_on_window_zoom() \n");
+	window_zoom_mode_on = true;
 }
 
-void gtk_win::update_statusbar( string key )
+void gtk_win::update_statusbar(  )
 {
-	if ( key == access_key)
-		update_statusbar_msg();
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::update_statusbar() \n");
+	update_statusbar_msg();
 }
 
 static void turn_on_window_zoom_mode(GtkWidget *widget, gpointer data)
 {
 	printf("Turned on window zoom mode!!\n======================\n");
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->turn_on_window_zoom (accessibility_key);
+	g_win->turn_on_window_zoom ();
 }
 static void save_as_fcn(GtkWidget *widget, gpointer data)
 {
@@ -682,58 +606,44 @@ static void save_as_fcn(GtkWidget *widget, gpointer data)
 	g_win->save_as();
 }
 
-void gtk_win::toolbar_zoom_in( string key )
+void gtk_win::toolbar_zoom_in( )
 {
-	if ( key == access_key )
-	{
-		double xdiff, ydiff;
-		xdiff = xright  - xleft; 
-		ydiff = ybottom - ytop;
-		xleft   += xdiff/zoom_in_factor;
-		xright  -= xdiff/zoom_in_factor;
-		ytop    += ydiff/zoom_in_factor;
-		ybottom -= ydiff/zoom_in_factor;
-	
-		focus();
-		update_statusbar_msg();
-	}
-	else
-	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::toolbar_zoom_in() \n");
-	}
+	double xdiff, ydiff;
+	xdiff = xright  - xleft; 
+	ydiff = ybottom - ytop;
+	xleft   += xdiff/zoom_in_factor;
+	xright  -= xdiff/zoom_in_factor;
+	ytop    += ydiff/zoom_in_factor;
+	ybottom -= ydiff/zoom_in_factor;
+
+	focus();
+	update_statusbar_msg();
 }
 
 static void zoom_in_fcn(GtkWidget *widget, gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->toolbar_zoom_in(accessibility_key);
+	g_win->toolbar_zoom_in();
 }
 
-void gtk_win::toolbar_zoom_out( string key )
+void gtk_win::toolbar_zoom_out( )
 {
-	if ( key == access_key )
-	{
-		double xdiff, ydiff;
-		xdiff = xright  - xleft; 
-		ydiff = ybottom - ytop;
-		xleft   -= xdiff/zoom_out_factor;
-		xright  += xdiff/zoom_out_factor;
-		ytop    -= ydiff/zoom_out_factor;
-		ybottom += ydiff/zoom_out_factor;
-	
-		focus();
-		update_statusbar_msg();
-	}
-	else
-	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::toolbar_zoom_in() \n");
-	}
+	double xdiff, ydiff;
+	xdiff = xright  - xleft; 
+	ydiff = ybottom - ytop;
+	xleft   -= xdiff/zoom_out_factor;
+	xright  += xdiff/zoom_out_factor;
+	ytop    -= ydiff/zoom_out_factor;
+	ybottom += ydiff/zoom_out_factor;
+
+	focus();
+	update_statusbar_msg();
 }
 
 static void zoom_out_fcn(GtkWidget *widget, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->toolbar_zoom_out(accessibility_key);
+	g_win->toolbar_zoom_out();
 }
 
 static void zoom_fit_fcn(GtkWidget *widget, gpointer data)
@@ -782,235 +692,227 @@ void gtk_win::deactivate_user_mouse_button_press_input()
 static void request_about_dialouge( GtkWidget *widget, gpointer* data )
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->show_about_dialouge( accessibility_key );
+	g_win->show_about_dialouge( );
 }
 
 static void request_preferences_dialog( GtkWidget *widget, gpointer data )
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->open_preferences_dialouge( accessibility_key );
+	g_win->open_preferences_dialouge(  );
 }
 static void request_properties_dialog( GtkWidget *widget, gpointer data )
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->show_properties_dialog( accessibility_key );
+	g_win->show_properties_dialog(  );
 }
 static void request_statistics_dialog( GtkWidget *widget, gpointer data )
 {
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->show_statistics_dialog( accessibility_key );
+	g_win->show_statistics_dialog(  );
 }
-void gtk_win::show_statistics_dialog( string key )
+void gtk_win::show_statistics_dialog(  )
 {
-	if ( access_key == key )
+	GtkWidget *dialog, *content_area;
+	GtkWidget *main_vbox, *hbox, *main_hbox;
+	GtkWidget *frame;
+	GtkWidget *table;
+	vector <string> arr;
+	GtkWidget *label1, *label2;
+	int index = 0;
+	string markup;
+	
+	dialog = gtk_dialog_new_with_buttons ("Statistics",
+	                                 GTK_WINDOW(mainwin),
+	                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
+	                                 GTK_RESPONSE_NONE,
+	                                 NULL);
+	        
+	content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
+	
+	main_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 5);
+	//gtk_container_add (GTK_CONTAINER (content_area), main_vbox);
+	
+	frame = gtk_frame_new ("Current Shape Count");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
+	
+	hbox = gtk_hbox_new (FALSE, 10);
+	char buffer[500];
+	stats->get_shape_counts( buffer );
+	
+	table = gtk_table_new(13, 2, 0);
+	arr.clear();
+	line2arr( buffer, &arr, ":,");
+	index = 0;
+	for ( int row = 0; row < 13; row++ )
 	{
+		for ( int col = 0; col < 2; col++ )
+		{
+			if ( col%2 == 0 )
+			{
+				label1 = gtk_label_new( NULL );
+				markup = "<b>"
+		        	+ arr[index] + ":</b>";
+				gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
+			}
+			else
+				label1 = gtk_label_new( arr[index].c_str() );
+			gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
+			gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
+			gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
+			index++;
+		}
+	}
+	
+	gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
+	gtk_container_add (GTK_CONTAINER (frame), hbox);
+	
+	frame = gtk_frame_new ("Total Event Count");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
+	
+	hbox = gtk_hbox_new (FALSE, 10);
+	char buffer2[500];
+	stats->get_event_count( buffer2 );
+	
+	table = gtk_table_new(8, 2, 0);
+	arr.clear();
+	line2arr( buffer2, &arr, ":,");
+	index = 0;
+	for ( int row = 0; row < 8; row++ )
+	{
+		for ( int col = 0; col < 2; col++ )
+		{
+			if ( col%2 == 0 )
+			{
+				label1 = gtk_label_new( NULL );
+				markup = "<b>"
+		        	+ arr[index] + ":</b>";
+				gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
+			}
+			else
+				label1 = gtk_label_new( arr[index].c_str() );
+			gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
+			gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
+			gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
+			index++;
+		}
+	}
+	
+	gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
+	gtk_container_add (GTK_CONTAINER (frame), hbox);
+	
+	frame = gtk_frame_new ("Resource Usage and Profile");
+	//gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
+	
+	hbox = gtk_hbox_new (FALSE, 10);
+	char buffer3[1500];
+	stats->get_resource_usage( buffer3 );
+	#ifdef linux OR unix
+		table = gtk_table_new(23, 2, 0);
+	# else
+		table = gtk_table_new(3, 2, 0);
+	#endif
+	arr.clear();
+	line2arr( buffer3, &arr, ":,");
+	index = 0;
+	#ifdef linux OR_unix
+	for ( int row = 0; row < 23; row++ )
+	#else
+	for ( int row = 0; row < 1; row++ )
+	#endif
+	{
+		for ( int col = 0; col < 2; col++ )
+		{
+			if ( col%2 == 0 )
+			{
+				label1 = gtk_label_new( NULL );
+				markup = "<b>"+ arr[index] + ":</b>";
+				gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
+			}
+			else
+				label1 = gtk_label_new( arr[index].c_str() );
+			gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
+			gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
+			gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
+			index++;
+		}
+	}
+	#ifndef linux AND unix
+		label1 = gtk_label_new( NULL );
+		markup = "<span size=\"x-large\"><b> Cannot show other details\nfor non-Linux Platforms</b></span>";
+		gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
+		gtk_table_attach( GTK_TABLE(table), label1, 0, 1, 1, 2, GTK_FILL, GTK_FILL, 3, 3 );
+	#endif
+	
+	gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
+	gtk_container_add (GTK_CONTAINER (frame), hbox);
+	
+	main_hbox = gtk_hbox_new (FALSE, 5);
+	gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 10);
+	gtk_box_pack_start (GTK_BOX (main_hbox), main_vbox, TRUE, TRUE, 10);
+	gtk_box_pack_start (GTK_BOX (main_hbox), frame, TRUE, TRUE, 10);
+	gtk_container_add (GTK_CONTAINER (content_area), main_hbox);
+	
+	
+	/* Ensure that the dialog box is destroyed when the user responds */
+	g_signal_connect(dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
+	
+	#ifdef UNDECORATED_DIALOG
+		gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
+	#endif
+	gtk_widget_show_all (dialog);
+}
+
+
+
+void gtk_win::show_about_dialouge(  )
+{
+	#ifndef EXPERIMENTAL_ABOUT_DIALOG
 		GtkWidget *dialog, *content_area;
-		GtkWidget *main_vbox, *hbox, *main_hbox;
-		GtkWidget *frame;
-		GtkWidget *table;
-		vector <string> arr;
-		GtkWidget *label1, *label2;
-		int index = 0;
-		string markup;
+		GtkWidget *main_hbox;
+		GtkWidget *logo;
+		GtkWidget *vbox; 
+		GtkWidget *name_label;
+		GtkWidget *copyright_label;
+		GtkWidget *comments_label;
+		GtkWidget *license_label;
+		GtkWidget *documentation_label;
 		
-		dialog = gtk_dialog_new_with_buttons ("Statistics",
-		                                 GTK_WINDOW(mainwin),
-		                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
-		                                 GTK_RESPONSE_NONE,
-		                                 NULL);
-		        
-		content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
-		
-		main_vbox = gtk_vbox_new (FALSE, 5);
-		gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 5);
-		//gtk_container_add (GTK_CONTAINER (content_area), main_vbox);
-		
-		frame = gtk_frame_new ("Current Shape Count");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
-		
-		hbox = gtk_hbox_new (FALSE, 10);
-		char buffer[300];
-		stats->get_shape_counts( buffer );
-		
-		table = gtk_table_new(13, 2, 0);
-		arr.clear();
-		line2arr( buffer, &arr, ":,");
-		index = 0;
-		for ( int row = 0; row < 13; row++ )
-		{
-			for ( int col = 0; col < 2; col++ )
-			{
-				if ( col%2 == 0 )
-				{
-					label1 = gtk_label_new( NULL );
-					markup = "<b>"
-			        	+ arr[index] + ":</b>";
-					gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
-				}
-				else
-					label1 = gtk_label_new( arr[index].c_str() );
-				gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
-				gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
-				gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
-				index++;
-			}
-		}
-		
-		gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
-		gtk_container_add (GTK_CONTAINER (frame), hbox);
-		
-		frame = gtk_frame_new ("Total Event Count");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
-		
-		hbox = gtk_hbox_new (FALSE, 10);
-		char buffer2[300];
-		stats->get_event_count( buffer2 );
-		
-		table = gtk_table_new(8, 2, 0);
-		arr.clear();
-		line2arr( buffer2, &arr, ":,");
-		index = 0;
-		for ( int row = 0; row < 8; row++ )
-		{
-			for ( int col = 0; col < 2; col++ )
-			{
-				if ( col%2 == 0 )
-				{
-					label1 = gtk_label_new( NULL );
-					markup = "<b>"
-			        	+ arr[index] + ":</b>";
-					gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
-				}
-				else
-					label1 = gtk_label_new( arr[index].c_str() );
-				gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
-				gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
-				gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
-				index++;
-			}
-		}
-		
-		gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
-		gtk_container_add (GTK_CONTAINER (frame), hbox);
-		
-		frame = gtk_frame_new ("Resource Usage and Profile");
-		//gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
-		
-		hbox = gtk_hbox_new (FALSE, 10);
-		char buffer3[800];
-		stats->get_resource_usage( buffer3 );
-		#ifdef linux OR unix
-			table = gtk_table_new(23, 2, 0);
-		# else
-			table = gtk_table_new(3, 2, 0);
-		#endif
-		arr.clear();
-		line2arr( buffer3, &arr, ":,");
-		index = 0;
-		#ifdef linux OR_unix
-		for ( int row = 0; row < 23; row++ )
-		#else
-		for ( int row = 0; row < 1; row++ )
-		#endif
-		{
-			for ( int col = 0; col < 2; col++ )
-			{
-				if ( col%2 == 0 )
-				{
-					label1 = gtk_label_new( NULL );
-					markup = "<b>"+ arr[index] + ":</b>";
-					gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
-				}
-				else
-					label1 = gtk_label_new( arr[index].c_str() );
-				gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
-				gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
-				gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
-				index++;
-			}
-		}
-		#ifndef linux AND unix
-			label1 = gtk_label_new( NULL );
-			markup = "<span size=\"x-large\"><b> Cannot show other details\nfor non-Linux Platforms</b></span>";
-			gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
-			gtk_table_attach( GTK_TABLE(table), label1, 0, 1, 1, 2, GTK_FILL, GTK_FILL, 3, 3 );
-		#endif
-		
-		gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
-		gtk_container_add (GTK_CONTAINER (frame), hbox);
-		
-		main_hbox = gtk_hbox_new (FALSE, 5);
+		dialog = gtk_dialog_new_with_buttons ("About BridgeGL",
+	                                 GTK_WINDOW(mainwin),
+	                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
+	                                 GTK_RESPONSE_NONE,
+	                                 NULL);
+	        
+	        content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
+	        
+	        main_hbox = gtk_hbox_new (FALSE, 5);
 		gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 10);
-		gtk_box_pack_start (GTK_BOX (main_hbox), main_vbox, TRUE, TRUE, 10);
-		gtk_box_pack_start (GTK_BOX (main_hbox), frame, TRUE, TRUE, 10);
 		gtk_container_add (GTK_CONTAINER (content_area), main_hbox);
 		
-		
-		/* Ensure that the dialog box is destroyed when the user responds */
-		g_signal_connect(dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
-		
-		#ifdef UNDECORATED_DIALOG
-			gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
-		#endif
-		gtk_widget_show_all (dialog);
-		
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::show_statistics_dialog() \n");
-}
-
-
-
-void gtk_win::show_about_dialouge( string key )
-{
-	if ( key == access_key )
-	{
-		#ifndef EXPERIMENTAL_ABOUT_DIALOG
-			GtkWidget *dialog, *content_area;
-			GtkWidget *main_hbox;
-			GtkWidget *logo;
-			GtkWidget *vbox; 
-			GtkWidget *name_label;
-			GtkWidget *copyright_label;
-			GtkWidget *comments_label;
-			GtkWidget *license_label;
-			GtkWidget *documentation_label;
-			
-			dialog = gtk_dialog_new_with_buttons ("About BridgeGL",
-		                                 GTK_WINDOW(mainwin),
-		                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
-		                                 GTK_RESPONSE_NONE,
-		                                 NULL);
-		        
-		        content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
-		        
-		        main_hbox = gtk_hbox_new (FALSE, 5);
-			gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 10);
-			gtk_container_add (GTK_CONTAINER (content_area), main_hbox);
-			
-			logo = gtk_image_new_from_file ("logo.png");
-		        gtk_box_pack_start (GTK_BOX (main_hbox), logo, TRUE, TRUE, 5);
-		        
-		        vbox = gtk_vbox_new (FALSE, 5);
-		        gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
-		        gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 5);
-		        
-		        name_label = gtk_label_new(NULL);
-		        string name_and_version = "<span size=\"x-large\"><b>" + name + " " + version + "</b></span>";
-		        gtk_label_set_markup (GTK_LABEL (name_label), name_and_version.c_str() );
-		        
-		        copyright_label = gtk_label_new(NULL);
-		        string copyright = "<i>(c)2013</i> <b>Sandeep Chatterjee</b> [chatte45@eecg.utoronto.ca]";
-		        gtk_label_set_markup (GTK_LABEL (copyright_label), copyright.c_str() );
-		        gtk_label_set_justify(GTK_LABEL(copyright_label), GTK_JUSTIFY_LEFT);
-		        
-		        comments_label = gtk_label_new(NULL);
-		        string comment = "An easy-to-use light-weight 2D-graphics package powered by <a href=\"http://www.cairographics.org/\">Cairo</a> \nand <a href=\"http://www.gtk.org/\">GTK+</a>";
-		        gtk_label_set_markup (GTK_LABEL (comments_label), comment.c_str() );
-		        gtk_label_set_justify(GTK_LABEL(comments_label), GTK_JUSTIFY_LEFT);
-		        gtk_misc_set_alignment (GTK_MISC (comments_label), 0, 0);
-		        
-		        license_label = gtk_label_new("Released under GNU license:\n\
+		logo = gtk_image_new_from_file ("logo.png");
+	        gtk_box_pack_start (GTK_BOX (main_hbox), logo, TRUE, TRUE, 5);
+	        
+	        vbox = gtk_vbox_new (FALSE, 5);
+	        gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
+	        gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 5);
+	        
+	        name_label = gtk_label_new(NULL);
+	        string name_and_version = "<span size=\"x-large\"><b>" + name + " " + version + "</b></span>";
+	        gtk_label_set_markup (GTK_LABEL (name_label), name_and_version.c_str() );
+	        
+	        copyright_label = gtk_label_new(NULL);
+	        string copyright = "<i>(c)2013</i> <b>Sandeep Chatterjee</b> [chatte45@eecg.utoronto.ca]";
+	        gtk_label_set_markup (GTK_LABEL (copyright_label), copyright.c_str() );
+	        gtk_label_set_justify(GTK_LABEL(copyright_label), GTK_JUSTIFY_LEFT);
+	        
+	        comments_label = gtk_label_new(NULL);
+	        string comment = "An easy-to-use light-weight 2D-graphics package powered by <a href=\"http://www.cairographics.org/\">Cairo</a> \nand <a href=\"http://www.gtk.org/\">GTK+</a>";
+	        gtk_label_set_markup (GTK_LABEL (comments_label), comment.c_str() );
+	        gtk_label_set_justify(GTK_LABEL(comments_label), GTK_JUSTIFY_LEFT);
+	        gtk_misc_set_alignment (GTK_MISC (comments_label), 0, 0);
+	        
+	        license_label = gtk_label_new("Released under GNU license:\n\
 This program is free software: you can redistribute it and/or modify it\n\
 under the terms of the GNU General Public License as published by the\n\
 Free Software Foundation, either version 3 of the License, or (at your\n\
@@ -1020,121 +922,118 @@ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n\
 or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public\n\
 License for more details.");
 
-		        gtk_label_set_justify(GTK_LABEL(license_label), GTK_JUSTIFY_LEFT);
-		        gtk_misc_set_alignment (GTK_MISC (license_label), 0, 0);
-		        
-		        documentation_label = gtk_label_new(NULL);
-		        string documentation = "For documentation, click <a href=\"http://www.eecg.utoronto.ca/~chatte45/bgl_doc/index.html\">Here</a>";
-		        gtk_label_set_markup (GTK_LABEL (documentation_label), documentation.c_str() );
-		         
-		        gtk_box_pack_start (GTK_BOX (vbox), name_label, TRUE, TRUE, 5);
-		        gtk_box_pack_start (GTK_BOX (vbox), copyright_label, TRUE, TRUE, 5);
-		        gtk_box_pack_start (GTK_BOX (vbox), comments_label, TRUE, TRUE, 5);
-		        gtk_box_pack_start (GTK_BOX (vbox), license_label, TRUE, TRUE, 5);
-		        gtk_box_pack_start (GTK_BOX (vbox), documentation_label, TRUE, TRUE, 5);
-		        
-		        /* Ensure that the dialog box is destroyed when the user responds */
-		        g_signal_connect_swapped (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
-			#ifdef UNDECORATED_DIALOG
-				gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
-			#endif
-			gtk_widget_show_all (dialog);
+	        gtk_label_set_justify(GTK_LABEL(license_label), GTK_JUSTIFY_LEFT);
+	        gtk_misc_set_alignment (GTK_MISC (license_label), 0, 0);
+	        
+	        documentation_label = gtk_label_new(NULL);
+	        string documentation = "For documentation, click <a href=\"http://www.eecg.utoronto.ca/~chatte45/bgl_doc/index.html\">Here</a>";
+	        gtk_label_set_markup (GTK_LABEL (documentation_label), documentation.c_str() );
+	         
+	        gtk_box_pack_start (GTK_BOX (vbox), name_label, TRUE, TRUE, 5);
+	        gtk_box_pack_start (GTK_BOX (vbox), copyright_label, TRUE, TRUE, 5);
+	        gtk_box_pack_start (GTK_BOX (vbox), comments_label, TRUE, TRUE, 5);
+	        gtk_box_pack_start (GTK_BOX (vbox), license_label, TRUE, TRUE, 5);
+	        gtk_box_pack_start (GTK_BOX (vbox), documentation_label, TRUE, TRUE, 5);
+	        
+	        /* Ensure that the dialog box is destroyed when the user responds */
+	        g_signal_connect_swapped (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
+		#ifdef UNDECORATED_DIALOG
+			gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
 		#endif
+		gtk_widget_show_all (dialog);
+	#endif
+	
+	#ifdef EXPERIMENTAL_ABOUT_DIALOG
+		double xcen = canvas_width/2;
+		double ycen = canvas_height/2; 
+		double 
+		x             = xcen - 250,        // parameters like cairo_rectangle
+		y             = ycen - 200,
+		width         = 500,
+		height        = 400,
+		aspect        = 1.25,     // aspect ratio 
+		corner_radius = height / 10.0;   // and corner curvature radius
+
+		double radius = corner_radius / aspect;
+		double degrees = M_PI / 180.0;
+
+		cairo_t* cr = gdk_cairo_create (canvas->window);
+
+		cairo_new_sub_path (cr);
+		cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
+		cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
+		cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
+		cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
+		cairo_close_path (cr);
+
+		cairo_set_source_rgba (cr, 0, 0, 0, 0.85);
+		cairo_fill_preserve (cr);
+		cairo_set_source_rgba (cr, 0.5, 0.5, 0.5, 1);
+		cairo_set_line_width (cr, 5.0);
+		cairo_stroke (cr);
+	
+		cairo_select_font_face (cr, "Sans",
+		    CAIRO_FONT_SLANT_NORMAL,
+		    CAIRO_FONT_WEIGHT_NORMAL);
 		
-		#ifdef EXPERIMENTAL_ABOUT_DIALOG
-			double xcen = canvas_width/2;
-			double ycen = canvas_height/2; 
-			double 
-			x             = xcen - 250,        // parameters like cairo_rectangle
-			y             = ycen - 200,
-			width         = 500,
-			height        = 400,
-			aspect        = 1.25,     // aspect ratio 
-			corner_radius = height / 10.0;   // and corner curvature radius
+		y = y - 15;
+		cairo_set_font_size (cr, 40.0);
+		cairo_set_source_rgb (cr, 1, 1, 1);
+		cairo_move_to (cr, x + 30, y + 80);
+		cairo_show_text (cr, "BridgeGL 1.0");
+		cairo_set_font_size (cr, 20.0);
+		cairo_move_to (cr, x + 30, y + 110);
+		cairo_show_text (cr, "(c) Sandeep Chatterjee 2013"); 
+		cairo_set_font_size (cr, 17.0);
+		cairo_move_to (cr, x + 30, y + 135);
+		cairo_show_text (cr, "[chatte45@eecg.utoronto.ca]");
+		cairo_move_to (cr, x + 30, y + 160);
+		cairo_show_text (cr, "www.eecg.utoronto.ca/~chatte45/doc/index.html");
+	
+		cairo_pattern_t *pat;
 
-			double radius = corner_radius / aspect;
-			double degrees = M_PI / 180.0;
+		double sep_x1 = x+80, sep_y1 = y+175, sep_x2 = x+width-80;
 
-			cairo_t* cr = gdk_cairo_create (canvas->window);
-
-			cairo_new_sub_path (cr);
-			cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
-			cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
-			cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
-			cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
-			cairo_close_path (cr);
-
-			cairo_set_source_rgba (cr, 0, 0, 0, 0.85);
-			cairo_fill_preserve (cr);
-			cairo_set_source_rgba (cr, 0.5, 0.5, 0.5, 1);
-			cairo_set_line_width (cr, 5.0);
-			cairo_stroke (cr);
-		
-			cairo_select_font_face (cr, "Sans",
-			    CAIRO_FONT_SLANT_NORMAL,
-			    CAIRO_FONT_WEIGHT_NORMAL);
-			
-			y = y - 15;
-			cairo_set_font_size (cr, 40.0);
-			cairo_set_source_rgb (cr, 1, 1, 1);
-			cairo_move_to (cr, x + 30, y + 80);
-			cairo_show_text (cr, "BridgeGL 1.0");
-			cairo_set_font_size (cr, 20.0);
-			cairo_move_to (cr, x + 30, y + 110);
-			cairo_show_text (cr, "(c) Sandeep Chatterjee 2013"); 
-			cairo_set_font_size (cr, 17.0);
-			cairo_move_to (cr, x + 30, y + 135);
-			cairo_show_text (cr, "[chatte45@eecg.utoronto.ca]");
-			cairo_move_to (cr, x + 30, y + 160);
-			cairo_show_text (cr, "www.eecg.utoronto.ca/~chatte45/doc/index.html");
-		
-			cairo_pattern_t *pat;
-
-			double sep_x1 = x+80, sep_y1 = y+175, sep_x2 = x+width-80;
-
-			pat = cairo_pattern_create_linear (sep_x1, sep_y1,  sep_x2, sep_y1);
-			cairo_pattern_add_color_stop_rgba (pat, 1, 1, 1, 1, 0);
-			cairo_pattern_add_color_stop_rgba (pat, 0.5, 0.5, 0.5, 0.5, 1);
-			cairo_pattern_add_color_stop_rgba (pat, 0, 1, 1, 1, 0);
-			cairo_rectangle (cr, sep_x1, sep_y1-1.5, sep_x2-sep_x1, 3);
-			cairo_set_source (cr, pat);
-			cairo_fill (cr);
-			cairo_pattern_destroy (pat);
-		
-			cairo_set_source_rgb (cr, 1, 1, 1);
-			cairo_set_font_size (cr, 20.0);
-			cairo_move_to (cr, x + 30, y + 205);
-			cairo_show_text (cr, "Released under GNU License");
-			cairo_set_font_size (cr, 13.0);
-			cairo_move_to (cr, x + 30, y + 230);
-			cairo_show_text (cr, "This program is free software: you can redistribute it and/or modify");
-			cairo_move_to (cr, x + 30, y + 245);
-			cairo_show_text (cr, "it under the terms of the GNU General Public License as published");
-			cairo_move_to (cr, x + 30, y + 260);
-			cairo_show_text (cr, "by the Free Software Foundation, either version 3 of the License,");
-			cairo_move_to (cr, x + 30, y + 275);
-			cairo_show_text (cr, "or (at your option) any later version.");
-			cairo_move_to (cr, x + 40, y + 295);
-			cairo_show_text (cr, "This program is distributed in the hope that it will be useful, but");
-			cairo_move_to (cr, x + 30, y + 310);
-			cairo_show_text (cr, "WITHOUT ANY WARRANTY; without even the implied warranty of");
-			cairo_move_to (cr, x + 30, y + 325);
-			cairo_show_text (cr, "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See");
-			cairo_move_to (cr, x + 30, y + 340);
-			cairo_show_text (cr, "the GNU General Public License for more details.");
-			cairo_move_to (cr, x + 40, y + 360);
-			cairo_show_text (cr, "You should have received a copy of the GNU General Public ");
-			cairo_move_to (cr, x + 30, y + 375);
-			cairo_show_text (cr, "License along with this program. If not, get it here: ");
-			cairo_set_font_size (cr, 17.0);
-			cairo_move_to (cr, x + 130, y + 395);
-			cairo_show_text (cr, "www.gnu.org/licenses/");
-		
-			cairo_destroy(cr);
-		#endif
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::show_about_dialouge() \n");
+		pat = cairo_pattern_create_linear (sep_x1, sep_y1,  sep_x2, sep_y1);
+		cairo_pattern_add_color_stop_rgba (pat, 1, 1, 1, 1, 0);
+		cairo_pattern_add_color_stop_rgba (pat, 0.5, 0.5, 0.5, 0.5, 1);
+		cairo_pattern_add_color_stop_rgba (pat, 0, 1, 1, 1, 0);
+		cairo_rectangle (cr, sep_x1, sep_y1-1.5, sep_x2-sep_x1, 3);
+		cairo_set_source (cr, pat);
+		cairo_fill (cr);
+		cairo_pattern_destroy (pat);
+	
+		cairo_set_source_rgb (cr, 1, 1, 1);
+		cairo_set_font_size (cr, 20.0);
+		cairo_move_to (cr, x + 30, y + 205);
+		cairo_show_text (cr, "Released under GNU License");
+		cairo_set_font_size (cr, 13.0);
+		cairo_move_to (cr, x + 30, y + 230);
+		cairo_show_text (cr, "This program is free software: you can redistribute it and/or modify");
+		cairo_move_to (cr, x + 30, y + 245);
+		cairo_show_text (cr, "it under the terms of the GNU General Public License as published");
+		cairo_move_to (cr, x + 30, y + 260);
+		cairo_show_text (cr, "by the Free Software Foundation, either version 3 of the License,");
+		cairo_move_to (cr, x + 30, y + 275);
+		cairo_show_text (cr, "or (at your option) any later version.");
+		cairo_move_to (cr, x + 40, y + 295);
+		cairo_show_text (cr, "This program is distributed in the hope that it will be useful, but");
+		cairo_move_to (cr, x + 30, y + 310);
+		cairo_show_text (cr, "WITHOUT ANY WARRANTY; without even the implied warranty of");
+		cairo_move_to (cr, x + 30, y + 325);
+		cairo_show_text (cr, "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See");
+		cairo_move_to (cr, x + 30, y + 340);
+		cairo_show_text (cr, "the GNU General Public License for more details.");
+		cairo_move_to (cr, x + 40, y + 360);
+		cairo_show_text (cr, "You should have received a copy of the GNU General Public ");
+		cairo_move_to (cr, x + 30, y + 375);
+		cairo_show_text (cr, "License along with this program. If not, get it here: ");
+		cairo_set_font_size (cr, 17.0);
+		cairo_move_to (cr, x + 130, y + 395);
+		cairo_show_text (cr, "www.gnu.org/licenses/");
+	
+		cairo_destroy(cr);
+	#endif
 }
 
 /* Accessor functions for settings */
@@ -1317,6 +1216,7 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	#endif
 	
 	// zoom and translate
+	num_frames = 16;
 	zoom_in_value = 1.04;
 	zoom_out_value = 0.96;
 	translate_u_value = 5;
@@ -1338,13 +1238,6 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	user_mouse_position_active = false;
 	user_mouse_button_press_method = NULL;
 	user_mouse_press_active = false;
-	
-	srand( time(NULL) );
-	int length = rand()%20 + 30;
-	generate_accessibility_key( length );
-	access_key = ::accessibility_key;
-	//printf("Access key: %s and length: %d and str_len: %d, \naccess_key: %s, required equality: %d\n", 
-	//::accessibility_key.c_str(), length, ::accessibility_key.length(), access_key.c_str(), (accessibility_key == access_key));
 }
 
 void gtk_win::init_world( double x1, double y1, double x2, double y2 )
@@ -1421,7 +1314,7 @@ void gtk_win::init_graphics( char* windowtitle )
 	
 	for( int i = sidepane_buttons.size()-1; i >=0; i-- )
 	{
-		gtk_box_pack_start(GTK_BOX(sidepane), sidepane_buttons[i]->get_widget(access_key), FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(sidepane), sidepane_buttons[i]->get_widget(), FALSE, FALSE, 0);
 	}
 	
 	#ifdef MENU_BAR
@@ -2587,28 +2480,21 @@ void gtk_win::draw_separator( cairo_t* cr, double sep_x1, double sep_y1, double 
 static void file_type_selected(GtkWidget *widget, gpointer data)
 {	
 	gtk_win* g_win = (gtk_win*) data;
-	g_win->save_as_file_type(widget, accessibility_key);
+	g_win->save_as_file_type(widget);
 }
 
-void gtk_win::save_as_file_type(GtkWidget *widget, string key)
+void gtk_win::save_as_file_type(GtkWidget *widget)
 {
-	if ( key == access_key )
-	{
-		gchar *active_text =  gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
-	
-		if ( g_strcmp0 (active_text, "PDF") == 0 )
-			type = PDF;
-		else if ( g_strcmp0 (active_text, "PNG") == 0 )
-			type = PNG;
-		else if ( g_strcmp0 (active_text, "SVG") == 0 )
-			type = SVG;
-		else if ( g_strcmp0 (active_text, "PS") == 0 )
-			type = PS;
-	}
-	else
-	{
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::save_as_file_type() \n");
-	}
+	gchar *active_text =  gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
+
+	if ( g_strcmp0 (active_text, "PDF") == 0 )
+		type = PDF;
+	else if ( g_strcmp0 (active_text, "PNG") == 0 )
+		type = PNG;
+	else if ( g_strcmp0 (active_text, "SVG") == 0 )
+		type = SVG;
+	else if ( g_strcmp0 (active_text, "PS") == 0 )
+		type = PS;
 }
 
 void gtk_win::save_as()
@@ -2765,505 +2651,472 @@ void gtk_win::save_as_ps( char* filename, bool appendtype )
 static void update_values_and_destroy_widget(GtkWidget *widget, gint response_id, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*)data;
-	g_win->update_values_for_zoom_translate_shear(accessibility_key);
+	g_win->update_values_for_zoom_translate_shear();
 	
 	gtk_widget_destroy(widget);
 }
 
 
-void gtk_win::update_values_for_zoom_translate_shear(string key)
+void gtk_win::update_values_for_zoom_translate_shear()
 {
-	if ( access_key == key )
-	{
-		double new_zoomin_value  = gtk_spin_button_get_value_as_float
-		( GTK_SPIN_BUTTON (zoomin_spinner) );
-		double new_zoomout_value = gtk_spin_button_get_value_as_float
-		( GTK_SPIN_BUTTON (zoomout_spinner) );
+	double new_zoomin_value  = gtk_spin_button_get_value_as_float
+	( GTK_SPIN_BUTTON (zoomin_spinner) );
+	double new_zoomout_value = gtk_spin_button_get_value_as_float
+	( GTK_SPIN_BUTTON (zoomout_spinner) );
+
+	int new_translate_u_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (up_spinner) );
+	int new_translate_d_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (down_spinner) );
+	int new_translate_l_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (left_spinner) );
+	int new_translate_r_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (right_spinner) );
 	
-		int new_translate_u_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (up_spinner) );
-		int new_translate_d_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (down_spinner) );
-		int new_translate_l_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (left_spinner) );
-		int new_translate_r_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (right_spinner) );
-		
-		double new_hshear_angle  = gtk_spin_button_get_value_as_float
-		( GTK_SPIN_BUTTON (hshear_spinner) );
-		double new_vshear_angle = gtk_spin_button_get_value_as_float
-		( GTK_SPIN_BUTTON (vshear_spinner) );
-		
-		set_zoom_in_factor( new_zoomin_value );
-		set_zoom_out_factor( new_zoomout_value );
-		set_scroll_zoom_in_factor( new_zoomin_value );
-		set_scroll_zoom_out_factor( new_zoomout_value );
-		set_translate_up_factor( new_translate_u_factor );
-		set_translate_down_factor( new_translate_d_factor );
-		set_translate_left_factor( new_translate_l_factor );
-		set_translate_right_factor( new_translate_r_factor );
-		set_horizontal_shear_delta( new_hshear_angle );
-		set_vertical_shear_delta( new_vshear_angle );
-		char status[40];
-		sprintf(status, "Updated values for Zoom, Translate and Shear Operations");
-		gtk_statusbar_push( GTK_STATUSBAR(statusbar), 
-				    gtk_statusbar_get_context_id( GTK_STATUSBAR(statusbar), status), status );
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::update_values_for_zoom_translate_shear() \n");
+	double new_hshear_angle  = gtk_spin_button_get_value_as_float
+	( GTK_SPIN_BUTTON (hshear_spinner) );
+	double new_vshear_angle = gtk_spin_button_get_value_as_float
+	( GTK_SPIN_BUTTON (vshear_spinner) );
+	
+	set_zoom_in_factor( new_zoomin_value );
+	set_zoom_out_factor( new_zoomout_value );
+	set_scroll_zoom_in_factor( new_zoomin_value );
+	set_scroll_zoom_out_factor( new_zoomout_value );
+	set_translate_up_factor( new_translate_u_factor );
+	set_translate_down_factor( new_translate_d_factor );
+	set_translate_left_factor( new_translate_l_factor );
+	set_translate_right_factor( new_translate_r_factor );
+	set_horizontal_shear_delta( new_hshear_angle );
+	set_vertical_shear_delta( new_vshear_angle );
+	char status[50];
+	sprintf(status, "Updated values for Zoom, Translate and Shear Operations");
+	gtk_statusbar_push( GTK_STATUSBAR(statusbar), 
+			    gtk_statusbar_get_context_id( GTK_STATUSBAR(statusbar), status), status );
 }
 
 // functions to lock all toggle spinbuttons together, so that their values change simultaneolusly
 static void toggle_translate_lock_state_fcn (GtkToggleButton *togglebutton, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*)data;
-	g_win->toggle_translate_lock_state(accessibility_key);
+	g_win->toggle_translate_lock_state();
 }
 
 static void lock_translate_spinners_fcn (GtkSpinButton *spinbutton, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*)data;
-	g_win->lock_translate_spinners(spinbutton, accessibility_key);
+	g_win->lock_translate_spinners(spinbutton );
 }
 
-void gtk_win::lock_translate_spinners(GtkSpinButton *spinbutton, string key )
+void gtk_win::lock_translate_spinners(GtkSpinButton *spinbutton )
 {
-	if ( access_key == key )
-	{
-		int new_translate_factor = gtk_spin_button_get_value_as_int( spinbutton );
-		gtk_spin_button_set_value( GTK_SPIN_BUTTON (up_spinner), new_translate_factor);
-		gtk_spin_button_set_value( GTK_SPIN_BUTTON (down_spinner), new_translate_factor);
-		gtk_spin_button_set_value( GTK_SPIN_BUTTON (left_spinner), new_translate_factor);
-		gtk_spin_button_set_value( GTK_SPIN_BUTTON (right_spinner), new_translate_factor);
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::lock_translate_spinners() \n");
+	int new_translate_factor = gtk_spin_button_get_value_as_int( spinbutton );
+	gtk_spin_button_set_value( GTK_SPIN_BUTTON (up_spinner), new_translate_factor);
+	gtk_spin_button_set_value( GTK_SPIN_BUTTON (down_spinner), new_translate_factor);
+	gtk_spin_button_set_value( GTK_SPIN_BUTTON (left_spinner), new_translate_factor);
+	gtk_spin_button_set_value( GTK_SPIN_BUTTON (right_spinner), new_translate_factor);
 	
 }
 
-void gtk_win::toggle_translate_lock_state( string key )
+void gtk_win::toggle_translate_lock_state(  )
 {
-	if ( access_key == key )
+	if ( gtk_toggle_button_get_active ( GTK_TOGGLE_BUTTON(translate_lock_button) ) )
 	{
-		if ( gtk_toggle_button_get_active ( GTK_TOGGLE_BUTTON(translate_lock_button) ) )
-		{
-			up_spinner_handler_id = g_signal_connect(G_OBJECT(up_spinner),"value-changed",
-			G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
-			down_spinner_handler_id = g_signal_connect(G_OBJECT(down_spinner),"value-changed",
-			G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
-			left_spinner_handler_id = g_signal_connect(G_OBJECT(left_spinner),"value-changed",
-			G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
-			right_spinner_handler_id = g_signal_connect(G_OBJECT(right_spinner),"value-changed",
-			G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
-		}
-		else
-		{
-			g_signal_handler_disconnect(GTK_OBJECT(up_spinner), up_spinner_handler_id);
-			g_signal_handler_disconnect(GTK_OBJECT(down_spinner), down_spinner_handler_id);
-			g_signal_handler_disconnect(GTK_OBJECT(left_spinner), left_spinner_handler_id);
-			g_signal_handler_disconnect(GTK_OBJECT(right_spinner), right_spinner_handler_id);
-		}
+		up_spinner_handler_id = g_signal_connect(G_OBJECT(up_spinner),"value-changed",
+		G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
+		down_spinner_handler_id = g_signal_connect(G_OBJECT(down_spinner),"value-changed",
+		G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
+		left_spinner_handler_id = g_signal_connect(G_OBJECT(left_spinner),"value-changed",
+		G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
+		right_spinner_handler_id = g_signal_connect(G_OBJECT(right_spinner),"value-changed",
+		G_CALLBACK(lock_translate_spinners_fcn), (gpointer)this);
 	}
 	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::toggle_translate_lock_state() \n");
+	{
+		g_signal_handler_disconnect(GTK_OBJECT(up_spinner), up_spinner_handler_id);
+		g_signal_handler_disconnect(GTK_OBJECT(down_spinner), down_spinner_handler_id);
+		g_signal_handler_disconnect(GTK_OBJECT(left_spinner), left_spinner_handler_id);
+		g_signal_handler_disconnect(GTK_OBJECT(right_spinner), right_spinner_handler_id);
+	}
 }
 
 // functions to lock all shear spinbuttons together, so that their values change simultaneolusly
 static void toggle_shear_lock_state_fcn (GtkToggleButton *togglebutton, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*)data;
-	g_win->toggle_shear_lock_state(accessibility_key);
+	g_win->toggle_shear_lock_state();
 }
 
 static void lock_shear_spinners_fcn (GtkSpinButton *spinbutton, gpointer data)
 {
 	gtk_win* g_win = (gtk_win*)data;
-	g_win->lock_shear_spinners(spinbutton, accessibility_key);
+	g_win->lock_shear_spinners(spinbutton );
 }
 
-void gtk_win::lock_shear_spinners(GtkSpinButton *spinbutton, string key )
+void gtk_win::lock_shear_spinners(GtkSpinButton *spinbutton )
 {
-	if ( access_key == key )
-	{
-		int new_shear_angle = gtk_spin_button_get_value_as_float( spinbutton );
-		gtk_spin_button_set_value( GTK_SPIN_BUTTON (hshear_spinner), new_shear_angle);
-		gtk_spin_button_set_value( GTK_SPIN_BUTTON (vshear_spinner), new_shear_angle);
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::lock_shear_spinners() \n");
+	int new_shear_angle = gtk_spin_button_get_value_as_float( spinbutton );
+	gtk_spin_button_set_value( GTK_SPIN_BUTTON (hshear_spinner), new_shear_angle);
+	gtk_spin_button_set_value( GTK_SPIN_BUTTON (vshear_spinner), new_shear_angle);
 }
 
-void gtk_win::toggle_shear_lock_state( string key )
+void gtk_win::toggle_shear_lock_state(  )
 {
-	if ( access_key == key )
+	if ( gtk_toggle_button_get_active ( GTK_TOGGLE_BUTTON(shear_lock_button) ) )
 	{
-		if ( gtk_toggle_button_get_active ( GTK_TOGGLE_BUTTON(shear_lock_button) ) )
-		{
-			hshear_spinner_handler_id = g_signal_connect(G_OBJECT(hshear_spinner),"value-changed",
-			G_CALLBACK(lock_shear_spinners_fcn), (gpointer)this);
-			vshear_spinner_handler_id = g_signal_connect(G_OBJECT(vshear_spinner),"value-changed",
-			G_CALLBACK(lock_shear_spinners_fcn), (gpointer)this);
-		}
-		else
-		{
-			g_signal_handler_disconnect(GTK_OBJECT(hshear_spinner), hshear_spinner_handler_id);
-			g_signal_handler_disconnect(GTK_OBJECT(vshear_spinner), vshear_spinner_handler_id);
-		}
+		hshear_spinner_handler_id = g_signal_connect(G_OBJECT(hshear_spinner),"value-changed",
+		G_CALLBACK(lock_shear_spinners_fcn), (gpointer)this);
+		vshear_spinner_handler_id = g_signal_connect(G_OBJECT(vshear_spinner),"value-changed",
+		G_CALLBACK(lock_shear_spinners_fcn), (gpointer)this);
 	}
 	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::toggle_translate_lock_state() \n");
+	{
+		g_signal_handler_disconnect(GTK_OBJECT(hshear_spinner), hshear_spinner_handler_id);
+		g_signal_handler_disconnect(GTK_OBJECT(vshear_spinner), vshear_spinner_handler_id);
+	}
 }
 
 // main function to open preferences dialouge
-void gtk_win::open_preferences_dialouge( string key )
+void gtk_win::open_preferences_dialouge(  )
 {
-	if ( access_key == key )
-	{
-		GtkWidget *dialog, *content_area;
-		GtkWidget *frame;
-		GtkWidget *hbox;
-		GtkWidget *main_vbox;
-		GtkWidget *label;
-		GtkWidget *vbox;
-		
-		char str[20];
-		guint char_width_label = 19;
-		
-		/* Create the widgets */
-	  	dialog = gtk_dialog_new_with_buttons ("Preferences",
-		                                 GTK_WINDOW(mainwin),
-		                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
-		                                 GTK_RESPONSE_NONE,
-		                                 NULL);
-		content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
-		
-		main_vbox = gtk_vbox_new (FALSE, 5);
-		gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 10);
-		gtk_container_add (GTK_CONTAINER (content_area), main_vbox);
-		
-		//  **********************  Zoom preferences 
-		// for toolbar buttons and scroll-zoom
-		frame = gtk_frame_new ("Zoom Preferences");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
-		
-		vbox = gtk_vbox_new (FALSE, 0);
-		gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
-		gtk_container_add (GTK_CONTAINER (frame), vbox);
+	GtkWidget *dialog, *content_area;
+	GtkWidget *frame;
+	GtkWidget *hbox;
+	GtkWidget *main_vbox;
+	GtkWidget *label;
+	GtkWidget *vbox;
+	
+	char str[20];
+	guint char_width_label = 19;
+	
+	/* Create the widgets */
+  	dialog = gtk_dialog_new_with_buttons ("Preferences",
+	                                 GTK_WINDOW(mainwin),
+	                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
+	                                 GTK_RESPONSE_NONE,
+	                                 NULL);
+	content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
+	
+	main_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 10);
+	gtk_container_add (GTK_CONTAINER (content_area), main_vbox);
+	
+	//  **********************  Zoom preferences 
+	// for toolbar buttons and scroll-zoom
+	frame = gtk_frame_new ("Zoom Preferences");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
+	
+	vbox = gtk_vbox_new (FALSE, 0);
+	gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
+	gtk_container_add (GTK_CONTAINER (frame), vbox);
 
-		// Zoom in
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Zoom-in by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
-		
-		adj = (GtkAdjustment *) gtk_adjustment_new (zoom_in_value, 1.04, 5.0, 0.04, 1.0, 0.0);
-		zoomin_spinner = gtk_spin_button_new (adj, 0, 2);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (zoomin_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (zoomin_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), zoomin_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-		
-		//Zoom out
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Zoom-out by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	// Zoom in
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Zoom-in by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	
+	adj = (GtkAdjustment *) gtk_adjustment_new (zoom_in_value, 1.04, 5.0, 0.04, 1.0, 0.0);
+	zoomin_spinner = gtk_spin_button_new (adj, 0, 2);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (zoomin_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (zoomin_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), zoomin_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+	
+	//Zoom out
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Zoom-out by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
 
-		adj = (GtkAdjustment *) gtk_adjustment_new (zoom_out_value, 0.1, 0.98, 0.02, 0.2, 0.0);
-		zoomout_spinner = gtk_spin_button_new (adj, 0, 2);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (zoomout_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (zoomout_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), zoomout_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-		
-		// ********************** Translate preferences
-		frame = gtk_frame_new ("Viewport Translate Preferences");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
-		
-		vbox = gtk_vbox_new (FALSE, 0);
-		gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
-		gtk_container_add (GTK_CONTAINER (frame), vbox);
-		
-		//translate up
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Translate Up by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
-		
-		adj = (GtkAdjustment *) gtk_adjustment_new (translate_u_value, 1.0, 100.0, 1.0, 5.0, 0.0);
-		up_spinner = gtk_spin_button_new (adj, 0, 0);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (up_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (up_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), up_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-		
-		//translate down
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Translate Down by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
-		
-		adj = (GtkAdjustment *) gtk_adjustment_new (translate_d_value, 1.0, 100.0, 1.0, 5.0, 0.0);
-		down_spinner = gtk_spin_button_new (adj, 0, 0);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (down_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (down_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), down_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-		
-		//translate left
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Translate Down by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
-		
-		adj = (GtkAdjustment *) gtk_adjustment_new (translate_l_value, 1.0, 100.0, 1.0, 5.0, 0.0);
-		left_spinner = gtk_spin_button_new (adj, 0, 0);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (left_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (left_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), left_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-		
-		//translate right
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Translate Down by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
-		
-		adj = (GtkAdjustment *) gtk_adjustment_new (translate_r_value, 1.0, 100.0, 1.0, 5.0, 0.0);
-		right_spinner = gtk_spin_button_new (adj, 0, 0);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (right_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (right_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), right_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-				
-		// lock all options butons
-		translate_lock_button = gtk_check_button_new_with_label ("Change all Viewport Translate values together");
-		gtk_box_pack_start (GTK_BOX (vbox), translate_lock_button, TRUE, TRUE, 0);
-		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (translate_lock_button), FALSE);
-		g_signal_connect(G_OBJECT(translate_lock_button),"toggled",
-		G_CALLBACK(toggle_translate_lock_state_fcn), (gpointer)this);
-		
-		//  **********************  Shear preferences 
-		frame = gtk_frame_new ("Shear Preferences");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
-		
-		vbox = gtk_vbox_new (FALSE, 0);
-		gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
-		gtk_container_add (GTK_CONTAINER (frame), vbox);
+	adj = (GtkAdjustment *) gtk_adjustment_new (zoom_out_value, 0.1, 0.98, 0.02, 0.2, 0.0);
+	zoomout_spinner = gtk_spin_button_new (adj, 0, 2);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (zoomout_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (zoomout_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), zoomout_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+	
+	// ********************** Translate preferences
+	frame = gtk_frame_new ("Viewport Translate Preferences");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
+	
+	vbox = gtk_vbox_new (FALSE, 0);
+	gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
+	gtk_container_add (GTK_CONTAINER (frame), vbox);
+	
+	//translate up
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Translate Up by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	
+	adj = (GtkAdjustment *) gtk_adjustment_new (translate_u_value, 1.0, 100.0, 1.0, 5.0, 0.0);
+	up_spinner = gtk_spin_button_new (adj, 0, 0);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (up_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (up_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), up_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+	
+	//translate down
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Translate Down by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	
+	adj = (GtkAdjustment *) gtk_adjustment_new (translate_d_value, 1.0, 100.0, 1.0, 5.0, 0.0);
+	down_spinner = gtk_spin_button_new (adj, 0, 0);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (down_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (down_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), down_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+	
+	//translate left
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Translate Down by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	
+	adj = (GtkAdjustment *) gtk_adjustment_new (translate_l_value, 1.0, 100.0, 1.0, 5.0, 0.0);
+	left_spinner = gtk_spin_button_new (adj, 0, 0);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (left_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (left_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), left_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+	
+	//translate right
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Translate Down by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	
+	adj = (GtkAdjustment *) gtk_adjustment_new (translate_r_value, 1.0, 100.0, 1.0, 5.0, 0.0);
+	right_spinner = gtk_spin_button_new (adj, 0, 0);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (right_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (right_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), right_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+			
+	// lock all options butons
+	translate_lock_button = gtk_check_button_new_with_label ("Change all Viewport Translate values together");
+	gtk_box_pack_start (GTK_BOX (vbox), translate_lock_button, TRUE, TRUE, 0);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (translate_lock_button), FALSE);
+	g_signal_connect(G_OBJECT(translate_lock_button),"toggled",
+	G_CALLBACK(toggle_translate_lock_state_fcn), (gpointer)this);
+	
+	//  **********************  Shear preferences 
+	frame = gtk_frame_new ("Shear Preferences");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 0);
+	
+	vbox = gtk_vbox_new (FALSE, 0);
+	gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
+	gtk_container_add (GTK_CONTAINER (frame), vbox);
 
-		// hshear
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Shear Horizontally by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
-		
-		adj = (GtkAdjustment *) gtk_adjustment_new (hshear_angle, 1.0, 75.0, 1.0, 5.0, 0.0);
-		hshear_spinner = gtk_spin_button_new (adj, 0, 2);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (hshear_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (hshear_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), hshear_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-		
-		//vshear
-		hbox = gtk_hbox_new (FALSE, 0);
-		label = gtk_label_new ("Shear Vertically by:");
-		gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
-		gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
-		gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	// hshear
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Shear Horizontally by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
+	
+	adj = (GtkAdjustment *) gtk_adjustment_new (hshear_angle, 1.0, 75.0, 1.0, 5.0, 0.0);
+	hshear_spinner = gtk_spin_button_new (adj, 0, 2);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (hshear_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (hshear_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), hshear_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+	
+	//vshear
+	hbox = gtk_hbox_new (FALSE, 0);
+	label = gtk_label_new ("Shear Vertically by:");
+	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
+	gtk_label_set_width_chars (GTK_LABEL(label), char_width_label);
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 5);
 
-		adj = (GtkAdjustment *) gtk_adjustment_new (vshear_angle, 1.0, 75.0, 1.0, 5.0, 0.0);
-		vshear_spinner = gtk_spin_button_new (adj, 0, 2);
-		gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (vshear_spinner), TRUE);
-		gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (vshear_spinner), 1);
-		gtk_box_pack_start (GTK_BOX (hbox), vshear_spinner, FALSE, TRUE, 0);
-		gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
-		
-		// lock all options butons
-		shear_lock_button = gtk_check_button_new_with_label ("Change all Shear values together");
-		gtk_box_pack_start (GTK_BOX (vbox), shear_lock_button, TRUE, TRUE, 0);
-		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (shear_lock_button), FALSE);
-		g_signal_connect(G_OBJECT(shear_lock_button),"toggled",
-		G_CALLBACK(toggle_shear_lock_state_fcn), (gpointer)this);
-		
-		/* Ensure that the dialog box is destroyed when the user responds */
-		g_signal_connect(dialog, "response", G_CALLBACK (update_values_and_destroy_widget), this);
-		#ifdef UNDECORATED_DIALOG
-			gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
-		#endif
-		gtk_widget_show_all (dialog);
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::open_preferences_dialog() \n");
-
+	adj = (GtkAdjustment *) gtk_adjustment_new (vshear_angle, 1.0, 75.0, 1.0, 5.0, 0.0);
+	vshear_spinner = gtk_spin_button_new (adj, 0, 2);
+	gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (vshear_spinner), TRUE);
+	gtk_spin_button_set_numeric( GTK_SPIN_BUTTON (vshear_spinner), 1);
+	gtk_box_pack_start (GTK_BOX (hbox), vshear_spinner, FALSE, TRUE, 0);
+	gtk_box_pack_start (GTK_BOX (vbox), hbox, TRUE, TRUE, 5);
+	
+	// lock all options butons
+	shear_lock_button = gtk_check_button_new_with_label ("Change all Shear values together");
+	gtk_box_pack_start (GTK_BOX (vbox), shear_lock_button, TRUE, TRUE, 0);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (shear_lock_button), FALSE);
+	g_signal_connect(G_OBJECT(shear_lock_button),"toggled",
+	G_CALLBACK(toggle_shear_lock_state_fcn), (gpointer)this);
+	
+	/* Ensure that the dialog box is destroyed when the user responds */
+	g_signal_connect(dialog, "response", G_CALLBACK (update_values_and_destroy_widget), this);
+	#ifdef UNDECORATED_DIALOG
+		gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
+	#endif
+	gtk_widget_show_all (dialog);
 }
 /************** End preferences related functions ***********/
 
 
-void gtk_win::show_properties_dialog( string key )
+void gtk_win::show_properties_dialog(  )
 {
-	if ( access_key == key )
+	GtkWidget *dialog, *content_area;
+	GtkWidget *main_vbox, *hbox;
+	GtkWidget *frame;
+	GtkWidget *table;
+	dialog = gtk_dialog_new_with_buttons ("Properties",
+	                                 GTK_WINDOW(mainwin),
+	                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
+	                                 GTK_RESPONSE_NONE,
+	                                 NULL);
+	content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
+	
+	/*g_signal_connect(sidepane, "size-allocate", G_CALLBACK(my_getsize), NULL);
+	g_signal_connect(canvas, "size-allocate", G_CALLBACK(my_getsize), NULL);*/
+	
+	GtkWidget *label1, *label2;
+	char buffer[200];
+	
+	main_vbox = gtk_vbox_new (FALSE, 5);
+	gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 10);
+	gtk_container_add (GTK_CONTAINER (content_area), main_vbox);
+	
+	frame = gtk_frame_new ("Dimensions");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
+	
+	sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
+	"Canvas", canvas->allocation.width, canvas->allocation.height, 
+	"Menubar", menubar->allocation.width, menubar->allocation.height,
+	"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
+	"Sidepane",sidepane->allocation.width, sidepane->allocation.height,
+	"Statusbar", statusbar->allocation.width, statusbar->allocation.height,
+	"Top-Window", mainwin->allocation.width, mainwin->allocation.height);
+	
+	hbox = gtk_hbox_new (FALSE, 10);
+	
+	//just to update
+	top_gui_height = menubar->allocation.height+toolbar->allocation.height;
+	
+	table = gtk_table_new(6, 4, 0);
+	vector <string> arr;
+	line2arr( buffer, &arr, " ");
+	int index = 0;
+	string markup;
+	for ( int row = 0; row < 6; row++ )
 	{
-		GtkWidget *dialog, *content_area;
-		GtkWidget *main_vbox, *hbox;
-		GtkWidget *frame;
-		GtkWidget *table;
-		dialog = gtk_dialog_new_with_buttons ("Properties",
-		                                 GTK_WINDOW(mainwin),
-		                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
-		                                 GTK_RESPONSE_NONE,
-		                                 NULL);
-		content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
-		
-		/*g_signal_connect(sidepane, "size-allocate", G_CALLBACK(my_getsize), NULL);
-		g_signal_connect(canvas, "size-allocate", G_CALLBACK(my_getsize), NULL);*/
-		
-		GtkWidget *label1, *label2;
-		char buffer[200];
-		
-		main_vbox = gtk_vbox_new (FALSE, 5);
-		gtk_container_set_border_width (GTK_CONTAINER (main_vbox), 10);
-		gtk_container_add (GTK_CONTAINER (content_area), main_vbox);
-		
-		frame = gtk_frame_new ("Dimensions");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
-		
-		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
-		"Canvas", canvas->allocation.width, canvas->allocation.height, 
-		"Menubar", menubar->allocation.width, menubar->allocation.height,
-		"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
-		"Sidepane",sidepane->allocation.width, sidepane->allocation.height,
-		"Statusbar", statusbar->allocation.width, statusbar->allocation.height,
-		"Top-Window", mainwin->allocation.width, mainwin->allocation.height);
-		
-		hbox = gtk_hbox_new (FALSE, 10);
-		
-		table = gtk_table_new(6, 4, 0);
-		vector <string> arr;
-		line2arr( buffer, &arr, " ");
-		int index = 0;
-		string markup;
-		for ( int row = 0; row < 6; row++ )
+		for ( int col = 0; col < 4; col++ )
 		{
-			for ( int col = 0; col < 4; col++ )
+			if ( col == 0 )
 			{
-				if ( col == 0 )
-				{
-					label1 = gtk_label_new( NULL );
-					markup = "<b>"
-			        	+ arr[index] + "</b>";
-					gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
-				}
-				else
-					label1 = gtk_label_new( arr[index].c_str() );
-				gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
-				gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
-				gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
-				index++;
+				label1 = gtk_label_new( NULL );
+				markup = "<b>"
+		        	+ arr[index] + "</b>";
+				gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
 			}
+			else
+				label1 = gtk_label_new( arr[index].c_str() );
+			gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
+			gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
+			gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
+			index++;
 		}
-		
-		gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
-		gtk_container_add (GTK_CONTAINER (frame), hbox);
-		
-		frame = gtk_frame_new ("Preference Settings");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
-		
-		hbox = gtk_hbox_new (FALSE, 10);
-		
-		char buffer2[400];
-		sprintf(buffer2, "%s: %.2fX,  %s: %.2fX, %s: %.2f\%, %s: %.2f\%, %s: %.2f\%, %s: %.2f\%, %s: %.2f, %s: %.2f",
-		"Zoom-in Multiplier", zoom_in_value, 
-		"Zoom-out Multiplier", zoom_out_value,
-		"Translate-up by", translate_u_value,   
-		"Translate-down by",translate_d_value,
-		"Translate-left by", translate_l_value,
-		"Translate-right by", translate_r_value,
-		"Change Shear Horizontally by", vshear_angle,
-		"Change Shear Vertically by", hshear_angle);
-		
-		table = gtk_table_new(8, 2, 0);
-		arr.clear();
-		line2arr( buffer2, &arr, ":,");
-		index = 0;
-		for ( int row = 0; row < 8; row++ )
-		{
-			for ( int col = 0; col < 2; col++ )
-			{
-				if ( col == 0 )
-				{
-					label1 = gtk_label_new( NULL );
-					markup = "<b>"
-			        	+ arr[index] + ":</b>";
-					gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
-				}
-				else
-					label1 = gtk_label_new( arr[index].c_str() );
-				gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
-				gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
-				gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
-				index++;
-			}
-		}
-		
-		gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
-		gtk_container_add (GTK_CONTAINER (frame), hbox);
-		
-		frame = gtk_frame_new ("Current Configuration");
-		gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
-		
-		hbox = gtk_hbox_new (FALSE, 10);
-		
-		char buffer3[600];
-		sprintf(buffer3, "%s: %.2fX;  %s: (%.2f,%.2f); %s: (%.2f,%.2f); %s: %.2f; %s: %.2f; %s: %.2f; %s: %d; %s: %d",
-		"Magnification", max( (saved_xright - saved_xleft)/(xright-xleft), (saved_ybottom - saved_ytop)/(ybottom-ytop) ),
-		"Left-Top Coordinates", xleft, ytop,
-		"Right-Bottom Coordinates", xright, ybottom,    
-		"Rotation By", (angle_multiplier%4)*90.0,
-		"Shear in Horizontal Direction", atan(horizontal_shear)/CONV_DEG_TO_RAD,
-		"Shear in Vertical Direction", atan(vertical_shear)/CONV_DEG_TO_RAD,
-		"No. of Image maps", image_maps.size(),
-		"No. of sidepane buttons", sidepane_buttons.size());
-		
-		table = gtk_table_new(8, 2, 0);
-		arr.clear();
-		line2arr( buffer3, &arr, ":;");
-		index = 0;
-		for ( int row = 0; row < 8; row++ )
-		{
-			for ( int col = 0; col < 2; col++ )
-			{
-				if ( col == 0 )
-				{
-					label1 = gtk_label_new( NULL );
-					markup = "<b>"
-			        	+ arr[index] + ":</b>";
-					gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
-				}
-				else
-					label1 = gtk_label_new( arr[index].c_str() );
-				gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
-				gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
-				gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
-				index++;
-			}
-		}
-		
-		gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
-		gtk_container_add (GTK_CONTAINER (frame), hbox);
-		
-		/* Ensure that the dialog box is destroyed when the user responds */
-		g_signal_connect(dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
-		
-		#ifdef UNDECORATED_DIALOG
-			gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
-		#endif
-		gtk_widget_show_all (dialog);
 	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute gtk_win::show_properties_dialog() \n");
+	
+	gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
+	gtk_container_add (GTK_CONTAINER (frame), hbox);
+	
+	frame = gtk_frame_new ("Preference Settings");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
+	
+	hbox = gtk_hbox_new (FALSE, 10);
+	
+	char buffer2[400];
+	sprintf(buffer2, "%s: %.2fX,  %s: %.2fX, %s: %.2f\%, %s: %.2f\%, %s: %.2f\%, %s: %.2f\%, %s: %.2f, %s: %.2f",
+	"Zoom-in Multiplier", zoom_in_value, 
+	"Zoom-out Multiplier", zoom_out_value,
+	"Translate-up by", translate_u_value,   
+	"Translate-down by",translate_d_value,
+	"Translate-left by", translate_l_value,
+	"Translate-right by", translate_r_value,
+	"Change Shear Horizontally by", vshear_angle,
+	"Change Shear Vertically by", hshear_angle);
+	
+	table = gtk_table_new(8, 2, 0);
+	arr.clear();
+	line2arr( buffer2, &arr, ":,");
+	index = 0;
+	for ( int row = 0; row < 8; row++ )
+	{
+		for ( int col = 0; col < 2; col++ )
+		{
+			if ( col == 0 )
+			{
+				label1 = gtk_label_new( NULL );
+				markup = "<b>"
+		        	+ arr[index] + ":</b>";
+				gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
+			}
+			else
+				label1 = gtk_label_new( arr[index].c_str() );
+			gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
+			gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
+			gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
+			index++;
+		}
+	}
+	
+	gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
+	gtk_container_add (GTK_CONTAINER (frame), hbox);
+	
+	frame = gtk_frame_new ("Current Configuration");
+	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
+	
+	hbox = gtk_hbox_new (FALSE, 10);
+	
+	char buffer3[600];
+	sprintf(buffer3, "%s: %.2fX;  %s: (%.2f,%.2f); %s: (%.2f,%.2f); %s: %.2f; %s: %.2f; %s: %.2f; %s: %d; %s: %d",
+	"Magnification", max( (saved_xright - saved_xleft)/(xright-xleft), (saved_ybottom - saved_ytop)/(ybottom-ytop) ),
+	"Left-Top Coordinates", xleft, ytop,
+	"Right-Bottom Coordinates", xright, ybottom,    
+	"Rotation By", (angle_multiplier%4)*90.0,
+	"Shear in Horizontal Direction", atan(horizontal_shear)/CONV_DEG_TO_RAD,
+	"Shear in Vertical Direction", atan(vertical_shear)/CONV_DEG_TO_RAD,
+	"No. of Image maps", image_maps.size(),
+	"No. of sidepane buttons", sidepane_buttons.size());
+	
+	table = gtk_table_new(8, 2, 0);
+	arr.clear();
+	line2arr( buffer3, &arr, ":;");
+	index = 0;
+	for ( int row = 0; row < 8; row++ )
+	{
+		for ( int col = 0; col < 2; col++ )
+		{
+			if ( col == 0 )
+			{
+				label1 = gtk_label_new( NULL );
+				markup = "<b>"
+		        	+ arr[index] + ":</b>";
+				gtk_label_set_markup ( GTK_LABEL ( label1 ), markup.c_str() );
+			}
+			else
+				label1 = gtk_label_new( arr[index].c_str() );
+			gtk_label_set_justify(GTK_LABEL (label1), GTK_JUSTIFY_RIGHT);
+			gtk_misc_set_alignment (GTK_MISC (label1), 1, 0.5);
+			gtk_table_attach( GTK_TABLE(table), label1, col, col+1, row, row+1, GTK_FILL, GTK_FILL, 3, 3 );
+			index++;
+		}
+	}
+	
+	gtk_box_pack_start (GTK_BOX (hbox), table, TRUE, TRUE, 10);
+	gtk_container_add (GTK_CONTAINER (frame), hbox);
+	
+	/* Ensure that the dialog box is destroyed when the user responds */
+	g_signal_connect(dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
+	
+	#ifdef UNDECORATED_DIALOG
+		gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
+	#endif
+	gtk_widget_show_all (dialog);
 }
 
 /* end propoerties dialog */
@@ -3280,27 +3133,6 @@ void gtk_win::line2arr (char* str, vector<string>* arr, char *tokenizer)
 		(*arr).push_back(ts);
 		tok = strtok(NULL,tokenizer);
 	}
-}
-
-/* Accessibility key Function */
-static void generate_accessibility_key( int length ) 
-{
-	static const char alphanum[] =
-		"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-	
-	//length = 8;
-	//char* s = new char [length];
-	vector<char> s(length);
-	for (int i = 0; i < length; i++) 
-	{
-		s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-	}
-	//s[length] = 0;
-	string key_temp(s.begin(), s.end());
-	//string key_temp(s);
-	//string key_temp("yusfguysd");
-	::accessibility_key = key_temp;//.sub_str(0, length-1);
-	//delete(s);
 }
 
 /** image-maps related functions from gtk_win ***/
@@ -3492,12 +3324,12 @@ bool image_map::in_bouding_box( double ex, double ey, gtk_win *_application )
 static void enter_button(GtkWidget *widget, gpointer data) 
 {
 	style_button* s_button = (style_button*) data;
-	s_button->act_on_enter_button_signal(accessibility_key);
+	s_button->act_on_enter_button_signal();
 }
 static void leave_button(GtkWidget *widget, gpointer data) 
 { 
 	style_button* s_button = (style_button*) data;
-	s_button->act_on_leave_button_signal(accessibility_key);
+	s_button->act_on_leave_button_signal();
 }
 
 style_button::style_button( string _button_text, button_fcn _act_on_button_press, gtk_win *_application )
@@ -3517,7 +3349,6 @@ style_button::style_button( string _button_text, button_fcn _act_on_button_press
 	gtk_button_set_relief( GTK_BUTTON(button), GTK_RELIEF_HALF );
 	
 				
-	access_id = accessibility_key;
 	#ifdef STYLE_BUTTONS
 		button_label = gtk_label_new("");
 		gtk_label_set_width_chars( GTK_LABEL (button_label), button_text.length()+2);
@@ -3546,14 +3377,9 @@ style_button::style_button( string _button_text, button_fcn _act_on_button_press
 	#endif
 }
 
-GtkWidget* style_button::get_widget(string key)
+GtkWidget* style_button::get_widget()
 {
-	if ( key == accessibility_key)
-	{
-		return button;
-	}
-	else
-		return NULL;
+	return button;
 }
 
 void style_button::set_desc( string _desc )
@@ -3564,29 +3390,19 @@ void style_button::set_desc( string _desc )
 	gtk_widget_set_tooltip_text (button, status);
 }
 
-void style_button::act_on_enter_button_signal(string key)
+void style_button::act_on_enter_button_signal()
 {
-	if ( key == accessibility_key)
-	{
-		string markup = "<span face=\"Helvetica\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#c0550d\" size=\"x-large\">"
-			        + button_text + "</span>";
-		gtk_label_set_markup ( GTK_LABEL ( button_label ), markup.c_str() );
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute style_button::act_on_enter_button_signal() \n");
+	string markup = "<span face=\"Helvetica\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#c0550d\" size=\"x-large\">"
+		        + button_text + "</span>";
+	gtk_label_set_markup ( GTK_LABEL ( button_label ), markup.c_str() );
 }
 
 //
-void style_button::act_on_leave_button_signal(string key)
+void style_button::act_on_leave_button_signal()
 {
-	if ( key == accessibility_key)
-	{
-		string markup = "<span face=\"Helvetica\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#528ae1\" size=\"x-large\">"
-	                + button_text + "</span>";
-		gtk_label_set_markup ( GTK_LABEL (button_label), markup.c_str() );
-	}
-	else
-		fprintf(stderr, "Error: Insufficient priviledges to execute style_button::act_on_leave_button_signal() \n");
+	string markup = "<span face=\"Helvetica\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#528ae1\" size=\"x-large\">"
+                + button_text + "</span>";
+	gtk_label_set_markup ( GTK_LABEL (button_label), markup.c_str() );
 }
 
 /*************** END STYLE BUTTON ***************/
