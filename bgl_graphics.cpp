@@ -22,57 +22,78 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #include <math.h>
 #include <string.h>
 
-static gboolean mainwin_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
-{	
-	gtk_win* g_win = (gtk_win*) data;
-	return g_win->mainwin_expose_event (event);
-}
-
-gboolean gtk_win::mainwin_expose_event (GdkEventExpose *event)
-{
-	cairo_t *cr;
-
-	// get a cairo_t
-	cr = gdk_cairo_create (mainwin->window);
+#ifdef GTK+3
+	static gboolean mainwin_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
+	{	
+		gtk_win* g_win = (gtk_win*) data;
+		return g_win->mainwin_draw_event (cr);
+	}
+	gboolean gtk_win::mainwin_draw_event (cairo_t *cr)
+	{
+		cairo_set_source_rgb(cr, 0.82745, 0.8549, 0.88627);
+		cairo_paint(cr);
+		stats->count_expose_event++;
+		return false;
+	}
+#else
+	static gboolean mainwin_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
+	{	
+		gtk_win* g_win = (gtk_win*) data;
+		return g_win->mainwin_expose_event (event);
+	}
 	
-	// set a clip region for the expose event 
-	cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
+	gboolean gtk_win::mainwin_expose_event (GdkEventExpose *event)
+	{
+		cairo_t *cr;
+		cr = gdk_cairo_create (mainwin->window);
 
-	cairo_clip (cr);
+		// set a clip region for the expose event 
+		cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
+		cairo_clip (cr);
 
-	cairo_set_source_rgb(cr, 0.82745, 0.8549, 0.88627);
-	//cairo_pattern_t *linpat;
-	//linpat = cairo_pattern_create_linear (0, 0, 600, 600);
-	//cairo_pattern_add_color_stop_rgb (linpat, 1,  0.02745, 0.12157, 0.262745);
-	//cairo_pattern_add_color_stop_rgb (linpat, 0.2,  0.596, 0.7647, 0.8353);
-	//cairo_set_source (cr, linpat);
-	cairo_paint(cr);
+		cairo_set_source_rgb(cr, 0.82745, 0.8549, 0.88627);
+		cairo_paint(cr);
 
-	cairo_destroy (cr);
-	stats->count_expose_event++;
-	
-	return false;
-}
+		cairo_destroy (cr);
+		stats->count_expose_event++;
+		return false;
+	}
+#endif
 
-static gboolean canvas_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
-{	
-	gtk_win* g_win = (gtk_win*) data;
-	return g_win->canvas_expose_event (event);
-}
 
+#ifdef GTK+3
+	static gboolean canvas_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
+	{	
+		gtk_win* g_win = (gtk_win*) data;
+		return g_win->canvas_draw_event (cr);
+	}
+#else
+	static gboolean canvas_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
+	{	
+		gtk_win* g_win = (gtk_win*) data;
+		return g_win->canvas_expose_event (event);
+	}	
+#endif
+
+#ifdef GTK+3
+gboolean gtk_win::canvas_draw_event (cairo_t *cr)
+#else
 gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
+#endif
 {
-	cairo_t *cr;
-
 	stats->draw_start_fcn();
 	stats->reset_counts(); 
-	// get a cairo_t
-	cr = gdk_cairo_create (canvas->window);
-	this->cr = cr;
 	
-	// set a clip region for the expose event 
-	cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
-	cairo_clip (cr);
+	#ifndef GTK+3
+		// get a cairo_t
+		cairo_t *cr;
+		cr = gdk_cairo_create (canvas->window);
+		// set a clip region for the expose event 
+		cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
+		cairo_clip (cr);
+	#endif
+	
+	this->cr = cr;
 
 	cairo_identity_matrix(cr);
 	user_tx = 0; user_ty = 0;
@@ -86,9 +107,6 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 
 	if (in_window_zoom_mode)
 	{
-		//cairo_identity_matrix(cr);
-		//user_tx = 0; user_ty = 0;
-		//cairo_translate (cr, user2win_x(0), user2win_y(0) );
 		cairo_set_source_rgba(cr, 0.882353, 0.67843, 0.12549, 0.4);
 		fillrect( cr, z_xleft, z_ytop, z_xright, z_ybottom);
 		cairo_set_source_rgb(cr, 0.70980, 0.572549, 0.207843);
@@ -113,7 +131,11 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 	#ifdef VIRTUAL_SCROLLBARS
 		draw_virtual_scrollbars();
 	#endif
-	cairo_destroy (cr);
+	
+	#ifndef GTK+3
+		cairo_destroy (cr);
+	#endif
+	
 	stats->draw_end_fcn();
 	stats->count_redraw++;
 		 
@@ -884,33 +906,33 @@ void gtk_win::show_about_dialouge(  )
 	                                 GTK_RESPONSE_NONE,
 	                                 NULL);
 	        
-	        content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
+	    content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
 	        
-	        main_hbox = gtk_hbox_new (FALSE, 5);
+	    main_hbox = gtk_hbox_new (FALSE, 5);
 		gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 10);
 		gtk_container_add (GTK_CONTAINER (content_area), main_hbox);
 		
 		logo = gtk_image_new_from_file ("logo.png");
-	        gtk_box_pack_start (GTK_BOX (main_hbox), logo, TRUE, TRUE, 5);
+	    gtk_box_pack_start (GTK_BOX (main_hbox), logo, TRUE, TRUE, 5);
 	        
-	        vbox = gtk_vbox_new (FALSE, 5);
-	        gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
-	        gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 5);
-	        
-	        name_label = gtk_label_new(NULL);
-	        string name_and_version = "<span size=\"x-large\"><b>" + name + " " + version + "</b></span>";
-	        gtk_label_set_markup (GTK_LABEL (name_label), name_and_version.c_str() );
-	        
-	        copyright_label = gtk_label_new(NULL);
-	        string copyright = "<i>(c)2013</i> <b>Sandeep Chatterjee</b> [chatte45@eecg.utoronto.ca]";
-	        gtk_label_set_markup (GTK_LABEL (copyright_label), copyright.c_str() );
-	        gtk_label_set_justify(GTK_LABEL(copyright_label), GTK_JUSTIFY_LEFT);
-	        
-	        comments_label = gtk_label_new(NULL);
-	        string comment = "An easy-to-use light-weight 2D-graphics package powered by <a href=\"http://www.cairographics.org/\">Cairo</a> \nand <a href=\"http://www.gtk.org/\">GTK+</a>";
-	        gtk_label_set_markup (GTK_LABEL (comments_label), comment.c_str() );
-	        gtk_label_set_justify(GTK_LABEL(comments_label), GTK_JUSTIFY_LEFT);
-	        gtk_misc_set_alignment (GTK_MISC (comments_label), 0, 0);
+        vbox = gtk_vbox_new (FALSE, 5);
+        gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
+        gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 5);
+        
+        name_label = gtk_label_new(NULL);
+        string name_and_version = "<span size=\"x-large\"><b>" + name + " " + version + "</b></span>";
+        gtk_label_set_markup (GTK_LABEL (name_label), name_and_version.c_str() );
+        
+        copyright_label = gtk_label_new(NULL);
+        string copyright = "<i>(c)2013</i> <b>Sandeep Chatterjee</b> [chatte45@eecg.utoronto.ca]";
+        gtk_label_set_markup (GTK_LABEL (copyright_label), copyright.c_str() );
+        gtk_label_set_justify(GTK_LABEL(copyright_label), GTK_JUSTIFY_LEFT);
+        
+        comments_label = gtk_label_new(NULL);
+        string comment = "An easy-to-use light-weight 2D-graphics package powered by <a href=\"http://www.cairographics.org/\">Cairo</a> \nand <a href=\"http://www.gtk.org/\">GTK+</a>";
+        gtk_label_set_markup (GTK_LABEL (comments_label), comment.c_str() );
+        gtk_label_set_justify(GTK_LABEL(comments_label), GTK_JUSTIFY_LEFT);
+        gtk_misc_set_alignment (GTK_MISC (comments_label), 0, 0);
 	        
 	        license_label = gtk_label_new("Released under GNU license:\n\
 This program is free software: you can redistribute it and/or modify it\n\
@@ -922,26 +944,26 @@ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n\
 or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public\n\
 License for more details.");
 
-	        gtk_label_set_justify(GTK_LABEL(license_label), GTK_JUSTIFY_LEFT);
-	        gtk_misc_set_alignment (GTK_MISC (license_label), 0, 0);
+        gtk_label_set_justify(GTK_LABEL(license_label), GTK_JUSTIFY_LEFT);
+        gtk_misc_set_alignment (GTK_MISC (license_label), 0, 0);
+        
+        documentation_label = gtk_label_new(NULL);
+        string documentation = "For documentation, click <a href=\"http://www.eecg.utoronto.ca/~chatte45/bgl_doc/index.html\">Here</a>";
+        gtk_label_set_markup (GTK_LABEL (documentation_label), documentation.c_str() );
+         
+        gtk_box_pack_start (GTK_BOX (vbox), name_label, TRUE, TRUE, 5);
+        gtk_box_pack_start (GTK_BOX (vbox), copyright_label, TRUE, TRUE, 5);
+        gtk_box_pack_start (GTK_BOX (vbox), comments_label, TRUE, TRUE, 5);
+        gtk_box_pack_start (GTK_BOX (vbox), license_label, TRUE, TRUE, 5);
+        gtk_box_pack_start (GTK_BOX (vbox), documentation_label, TRUE, TRUE, 5);
 	        
-	        documentation_label = gtk_label_new(NULL);
-	        string documentation = "For documentation, click <a href=\"http://www.eecg.utoronto.ca/~chatte45/bgl_doc/index.html\">Here</a>";
-	        gtk_label_set_markup (GTK_LABEL (documentation_label), documentation.c_str() );
-	         
-	        gtk_box_pack_start (GTK_BOX (vbox), name_label, TRUE, TRUE, 5);
-	        gtk_box_pack_start (GTK_BOX (vbox), copyright_label, TRUE, TRUE, 5);
-	        gtk_box_pack_start (GTK_BOX (vbox), comments_label, TRUE, TRUE, 5);
-	        gtk_box_pack_start (GTK_BOX (vbox), license_label, TRUE, TRUE, 5);
-	        gtk_box_pack_start (GTK_BOX (vbox), documentation_label, TRUE, TRUE, 5);
-	        
-	        /* Ensure that the dialog box is destroyed when the user responds */
-	        g_signal_connect_swapped (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
+        /* Ensure that the dialog box is destroyed when the user responds */
+        g_signal_connect_swapped (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
 		#ifdef UNDECORATED_DIALOG
 			gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
 		#endif
 		gtk_widget_show_all (dialog);
-	#endif
+		#endif
 	
 	#ifdef EXPERIMENTAL_ABOUT_DIALOG
 		double xcen = canvas_width/2;
@@ -1255,7 +1277,7 @@ void gtk_win::init_world( double x1, double y1, double x2, double y2 )
 	
 	//update_transform();
 	// Fire up GTK!    
-	//gtk_rc_parse( "ob_gtkrc" ); 
+	//gtk_rc_parse( "gtk-2.0/gtkrc" ); 
 	//g_mem_set_vtable (glib_mem_profiler_table);
 	//g_atexit (g_mem_profile);
 	
@@ -1276,7 +1298,11 @@ void gtk_win::init_graphics( char* windowtitle )
 {
 	mainwin = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 	gtk_widget_set_app_paintable(mainwin, TRUE);
-	g_signal_connect(G_OBJECT(mainwin), "expose-event", G_CALLBACK(mainwin_expose), (gpointer)this );
+	#ifdef GTK+3
+		g_signal_connect(G_OBJECT(mainwin), "draw", G_CALLBACK(mainwin_draw), (gpointer)this );
+	#else
+		g_signal_connect(GTK_OBJECT(mainwin), "expose-event", G_CALLBACK(mainwin_expose), (gpointer)this );
+	#endif
 	
 	gtk_container_set_border_width (GTK_CONTAINER (mainwin), 0);
 	
@@ -1340,12 +1366,20 @@ void gtk_win::init_graphics( char* windowtitle )
 	g_signal_connect(G_OBJECT(mainwin), "configure-event", G_CALLBACK(gtk_mainwin_configure), (gpointer)this);
 	
 	g_signal_connect(mainwin, "scroll-event", G_CALLBACK(gtk_win_scroll), (gpointer)this);
-	gtk_signal_connect(GTK_OBJECT(mainwin), "motion_notify_event", G_CALLBACK(mouse_position_tracker), (gpointer)this);
+	#ifdef GTK+3
+		g_signal_connect(G_OBJECT (mainwin), "motion_notify_event", G_CALLBACK(mouse_position_tracker), (gpointer)this);
+	#else
+		gtk_signal_connect(GTK_OBJECT(mainwin), "motion_notify_event", G_CALLBACK(mouse_position_tracker), (gpointer)this);
+	#endif
 	g_signal_connect(mainwin, "button_press_event", G_CALLBACK(mouse_button_callback), (gpointer)this);
 	g_signal_connect(mainwin, "button_release_event", G_CALLBACK(mouse_button_callback), (gpointer)this);
 
 	// Whenever exposed, do the drawing on canvas as per user function
-	g_signal_connect (G_OBJECT (canvas), "expose-event", G_CALLBACK (canvas_expose),  (gpointer)this );
+	#ifdef GTK+3
+		g_signal_connect (G_OBJECT (canvas), "draw", G_CALLBACK (canvas_draw),  (gpointer)this );
+	#else
+		g_signal_connect (GTK_OBJECT (canvas), "expose-event", G_CALLBACK (canvas_expose),  (gpointer)this );
+	#endif
 	
 	// connecting window state event
 	g_signal_connect(G_OBJECT(mainwin),"window-state-event", G_CALLBACK(chk_mainwin_state_event_fcn), (gpointer)this);
@@ -1367,10 +1401,16 @@ void gtk_win::init_graphics( char* windowtitle )
 	
 	// try to get width and height
 	
-	stbar_height = statusbar->allocation.height;
-	sdp_width = sidepane->allocation.width;
-	top_gui_height = menubar->allocation.height+toolbar->allocation.height;
-	
+	#ifdef GTK+3
+		stbar_height = gtk_widget_get_allocated_height( GTK_WIDGET(statusbar) );
+		sdp_width    = gtk_widget_get_allocated_width ( GTK_WIDGET(sidepane) );
+		top_gui_height = gtk_widget_get_allocated_height( GTK_WIDGET(menubar) )+
+		                 gtk_widget_get_allocated_height( GTK_WIDGET(toolbar) );
+	#else
+		stbar_height = statusbar->allocation.height;
+		sdp_width = sidepane->allocation.width;
+		top_gui_height = menubar->allocation.height+toolbar->allocation.height;
+	#endif
 	 // Enter the main event loop, and wait for user interaction 
 	gtk_main (); //*/
 	
@@ -1727,7 +1767,11 @@ void gtk_win::redraw()
 void gtk_win::draw_virtual_scrollbars()
 {
 	//#CCCCCC"
-	cr = gdk_cairo_create (canvas->window);
+	#ifdef GTK+3
+		cr = gdk_cairo_create ( gtk_widget_get_window(GTK_WIDGET(canvas)) );
+	#else
+		cr = gdk_cairo_create (canvas->window);
+	#endif
 	cairo_set_source_rgba(cr, 0.5, 0.5, 0.5, 0.6);
 
 	double xratio = (saved_xright - saved_xleft)/canvas_width; 
@@ -2485,16 +2529,20 @@ static void file_type_selected(GtkWidget *widget, gpointer data)
 
 void gtk_win::save_as_file_type(GtkWidget *widget)
 {
-	gchar *active_text =  gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
+	#ifdef GTK+3
+		gchar *active_text =  gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(widget));
+	#else
+		gchar *active_text =  gtk_combo_box_get_active_text(GTK_COMBO_BOX(widget));
+	#endif
+		if ( g_strcmp0 (active_text, "PDF") == 0 )
+			type = PDF;
+		else if ( g_strcmp0 (active_text, "PNG") == 0 )
+			type = PNG;
+		else if ( g_strcmp0 (active_text, "SVG") == 0 )
+			type = SVG;
+		else if ( g_strcmp0 (active_text, "PS") == 0 )
+			type = PS;
 
-	if ( g_strcmp0 (active_text, "PDF") == 0 )
-		type = PDF;
-	else if ( g_strcmp0 (active_text, "PNG") == 0 )
-		type = PNG;
-	else if ( g_strcmp0 (active_text, "SVG") == 0 )
-		type = SVG;
-	else if ( g_strcmp0 (active_text, "PS") == 0 )
-		type = PS;
 }
 
 void gtk_win::save_as()
@@ -2509,12 +2557,21 @@ void gtk_win::save_as()
 				      GTK_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
 				      NULL);
 	gtk_file_chooser_set_do_overwrite_confirmation (GTK_FILE_CHOOSER (dialog), TRUE);
+	#ifdef GTK+3
+	combo_box = gtk_combo_box_text_new();
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box), "PDF");
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box), "PNG");
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box), "SVG");
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box), "PS");
+	//gtk_combo_box_set_active (GTK_COMBO_BOX(combo_box), 1);
+	#else
 	combo_box = gtk_combo_box_new_text();
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_box), "PDF");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_box), "PNG");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_box), "SVG");
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_box), "PS");
 	gtk_combo_box_set_active (GTK_COMBO_BOX(combo_box), 1);
+	#endif
 	g_signal_connect(G_OBJECT(combo_box), "changed", G_CALLBACK(file_type_selected), (gpointer)this);
 	gtk_file_chooser_set_extra_widget ( GTK_FILE_CHOOSER(dialog), combo_box);
 	
@@ -2659,20 +2716,34 @@ static void update_values_and_destroy_widget(GtkWidget *widget, gint response_id
 
 void gtk_win::update_values_for_zoom_translate_shear()
 {
-	double new_zoomin_value  = gtk_spin_button_get_value_as_float
-	( GTK_SPIN_BUTTON (zoomin_spinner) );
-	double new_zoomout_value = gtk_spin_button_get_value_as_float
-	( GTK_SPIN_BUTTON (zoomout_spinner) );
+	#ifdef GTK+3
+		double new_zoomin_value  = gtk_spin_button_get_value
+		( GTK_SPIN_BUTTON (zoomin_spinner) );
+		double new_zoomout_value = gtk_spin_button_get_value
+		( GTK_SPIN_BUTTON (zoomout_spinner) );
+	#else
+		double new_zoomin_value  = gtk_spin_button_get_value_as_float
+		( GTK_SPIN_BUTTON (zoomin_spinner) );
+		double new_zoomout_value = gtk_spin_button_get_value_as_float
+		( GTK_SPIN_BUTTON (zoomout_spinner) );
+	#endif
 
 	int new_translate_u_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (up_spinner) );
 	int new_translate_d_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (down_spinner) );
 	int new_translate_l_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (left_spinner) );
 	int new_translate_r_factor = gtk_spin_button_get_value_as_int( GTK_SPIN_BUTTON (right_spinner) );
 	
-	double new_hshear_angle  = gtk_spin_button_get_value_as_float
-	( GTK_SPIN_BUTTON (hshear_spinner) );
-	double new_vshear_angle = gtk_spin_button_get_value_as_float
-	( GTK_SPIN_BUTTON (vshear_spinner) );
+	#ifdef GTK+3
+		double new_hshear_angle  = gtk_spin_button_get_value
+		( GTK_SPIN_BUTTON (hshear_spinner) );
+		double new_vshear_angle = gtk_spin_button_get_value
+		( GTK_SPIN_BUTTON (vshear_spinner) );
+	#else
+		double new_hshear_angle  = gtk_spin_button_get_value_as_float
+		( GTK_SPIN_BUTTON (hshear_spinner) );
+		double new_vshear_angle = gtk_spin_button_get_value_as_float
+		( GTK_SPIN_BUTTON (vshear_spinner) );
+	#endif
 	
 	set_zoom_in_factor( new_zoomin_value );
 	set_zoom_out_factor( new_zoomout_value );
@@ -2728,10 +2799,17 @@ void gtk_win::toggle_translate_lock_state(  )
 	}
 	else
 	{
-		g_signal_handler_disconnect(GTK_OBJECT(up_spinner), up_spinner_handler_id);
-		g_signal_handler_disconnect(GTK_OBJECT(down_spinner), down_spinner_handler_id);
-		g_signal_handler_disconnect(GTK_OBJECT(left_spinner), left_spinner_handler_id);
-		g_signal_handler_disconnect(GTK_OBJECT(right_spinner), right_spinner_handler_id);
+		#ifdef GTK+3
+			g_signal_handler_disconnect(G_OBJECT(up_spinner), up_spinner_handler_id);
+			g_signal_handler_disconnect(G_OBJECT(down_spinner), down_spinner_handler_id);
+			g_signal_handler_disconnect(G_OBJECT(left_spinner), left_spinner_handler_id);
+			g_signal_handler_disconnect(G_OBJECT(right_spinner), right_spinner_handler_id);
+		#else
+			g_signal_handler_disconnect(GTK_OBJECT(up_spinner), up_spinner_handler_id);
+			g_signal_handler_disconnect(GTK_OBJECT(down_spinner), down_spinner_handler_id);
+			g_signal_handler_disconnect(GTK_OBJECT(left_spinner), left_spinner_handler_id);
+			g_signal_handler_disconnect(GTK_OBJECT(right_spinner), right_spinner_handler_id);
+		#endif
 	}
 }
 
@@ -2750,7 +2828,11 @@ static void lock_shear_spinners_fcn (GtkSpinButton *spinbutton, gpointer data)
 
 void gtk_win::lock_shear_spinners(GtkSpinButton *spinbutton )
 {
-	int new_shear_angle = gtk_spin_button_get_value_as_float( spinbutton );
+	#ifdef GTK+3
+		int new_shear_angle = gtk_spin_button_get_value( spinbutton );
+	#else
+		int new_shear_angle = gtk_spin_button_get_value_as_float( spinbutton );
+	#endif
 	gtk_spin_button_set_value( GTK_SPIN_BUTTON (hshear_spinner), new_shear_angle);
 	gtk_spin_button_set_value( GTK_SPIN_BUTTON (vshear_spinner), new_shear_angle);
 }
@@ -2766,8 +2848,13 @@ void gtk_win::toggle_shear_lock_state(  )
 	}
 	else
 	{
-		g_signal_handler_disconnect(GTK_OBJECT(hshear_spinner), hshear_spinner_handler_id);
-		g_signal_handler_disconnect(GTK_OBJECT(vshear_spinner), vshear_spinner_handler_id);
+		#ifdef GTK+3
+			g_signal_handler_disconnect(G_OBJECT(hshear_spinner), hshear_spinner_handler_id);
+			g_signal_handler_disconnect(G_OBJECT(vshear_spinner), vshear_spinner_handler_id);
+		#else
+			g_signal_handler_disconnect(G_OBJECT(hshear_spinner), hshear_spinner_handler_id);
+			g_signal_handler_disconnect(G_OBJECT(vshear_spinner), vshear_spinner_handler_id);
+		#endif
 	}
 }
 
@@ -2983,18 +3070,40 @@ void gtk_win::show_properties_dialog(  )
 	frame = gtk_frame_new ("Dimensions");
 	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
 	
-	sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
-	"Canvas", canvas->allocation.width, canvas->allocation.height, 
-	"Menubar", menubar->allocation.width, menubar->allocation.height,
-	"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
-	"Sidepane",sidepane->allocation.width, sidepane->allocation.height,
-	"Statusbar", statusbar->allocation.width, statusbar->allocation.height,
-	"Top-Window", mainwin->allocation.width, mainwin->allocation.height);
+	#ifdef GTK+3
+		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
+		"Canvas", gtk_widget_get_allocated_width(GTK_WIDGET(canvas)),
+		gtk_widget_get_allocated_height(GTK_WIDGET(canvas)), 
+		"Menubar", gtk_widget_get_allocated_width(GTK_WIDGET(menubar)),
+		gtk_widget_get_allocated_height(GTK_WIDGET(menubar)),
+		"Toolbar", gtk_widget_get_allocated_width(GTK_WIDGET(toolbar)),
+		gtk_widget_get_allocated_height(GTK_WIDGET(toolbar)),
+		"Sidepane", gtk_widget_get_allocated_width(GTK_WIDGET(sidepane)),
+		gtk_widget_get_allocated_height(GTK_WIDGET(sidepane)),
+		"Statusbar", gtk_widget_get_allocated_width(GTK_WIDGET(statusbar)),
+		gtk_widget_get_allocated_height(GTK_WIDGET(statusbar)),
+		"Top-Window", gtk_widget_get_allocated_width(GTK_WIDGET(mainwin)),
+		gtk_widget_get_allocated_height(GTK_WIDGET(mainwin))
+		);	
+	#else
+		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
+		"Canvas", canvas->allocation.width, canvas->allocation.height, 
+		"Menubar", menubar->allocation.width, menubar->allocation.height,
+		"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
+		"Sidepane",sidepane->allocation.width, sidepane->allocation.height,
+		"Statusbar", statusbar->allocation.width, statusbar->allocation.height,
+		"Top-Window", mainwin->allocation.width, mainwin->allocation.height);
+	#endif
 	
 	hbox = gtk_hbox_new (FALSE, 10);
 	
 	//just to update
-	top_gui_height = menubar->allocation.height+toolbar->allocation.height;
+	#ifdef GTK+3
+		top_gui_height = gtk_widget_get_allocated_height(GTK_WIDGET(menubar))+
+		gtk_widget_get_allocated_height(GTK_WIDGET(toolbar));
+	#else
+		top_gui_height = menubar->allocation.height+toolbar->allocation.height;
+	#endif
 	
 	table = gtk_table_new(6, 4, 0);
 	vector <string> arr;
