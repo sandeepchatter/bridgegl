@@ -20,13 +20,15 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #ifndef _BGL_GRAPHICS_H_
 #define _BGL_GRAPHICS_H_
 
+//#define GTK+3
+
 #include <gtk/gtk.h>
+#include <gdk/gdk.h>
 #include <cairo.h>
 #include <cairo-pdf.h>
 #include <cairo-ps.h>
 #include <cairo-svg.h>
 #include <math.h>
-#include <gdk/gdkkeysyms.h>
 #include <string>
 #include <vector>
 #include <stdio.h>
@@ -36,6 +38,12 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #include <sys/resource.h>
 #include <fstream>
 #include<iostream>
+
+#ifdef GTK+3
+#include <gdk/gdkkeysyms-compat.h>
+#else
+#include <gdk/gdkkeysyms.h>
+#endif
 
 #ifndef MAX
 #define max(a,b) (((a) > (b))? (a) : (b))
@@ -55,6 +63,7 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #define MENU_BAR
 //#define EFFECTS
 //#define UNDECORATED_DIALOG
+
 
 #define CONV_DEG_TO_RAD 0.01745329252  // pi/180
 #define MAX_SHEAR 3.73205080756        // tan(75)
@@ -403,8 +412,13 @@ class gtk_win
 	void update_statusbar( ); //requires restricted access in future
 	
 	//signal/event callbacks, restricted access
-	gboolean mainwin_expose_event (GdkEventExpose *event); //requires restricted access in future
-	gboolean canvas_expose_event  (GdkEventExpose *event); //requires restricted access in future
+	#ifdef GTK+3
+		gboolean mainwin_draw_event (cairo_t *cr); //requires restricted access in future
+		gboolean canvas_draw_event  (cairo_t *cr); //requires restricted access in future
+	#else
+		gboolean mainwin_expose_event (GdkEventExpose *event); //requires restricted access in future
+		gboolean canvas_expose_event  (GdkEventExpose *event); //requires restricted access in future
+	#endif
 	void     mainwin_scroll_event (GdkEventScroll* event); //requires restricted access in future
 	gboolean mainwin_configure_event (GdkEventConfigure *event); //requires restricted access in future
 	gboolean canvas_configure_event  (GdkEventConfigure *event); //requires restricted access in future
