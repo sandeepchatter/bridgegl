@@ -37,7 +37,8 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <fstream>
-#include<iostream>
+#include <iostream>
+#include <map>
 
 #ifdef GTK+3
 #include <gdk/gdkkeysyms-compat.h>
@@ -54,19 +55,18 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 
 //#define DEBUG
 //#define BOUNDING_BOX
-//#define EXPERIMENTAL_ABOUT_DIALOG
-#define STYLE_BUTTONS
+//#define STYLE_BUTTONS
 //#define FOLLOW_MOUSE_POINTER
-//#define VIRTUAL_SCROLLBARS
 #define SCALE_TEXT
-#define TOOLBAR
+//#define TOOLBAR
 #define MENU_BAR
-//#define EFFECTS
-//#define UNDECORATED_DIALOG
+#define APPLY_CSS
+#define UNDECORATED_DIALOG
 
 
 #define CONV_DEG_TO_RAD 0.01745329252  // pi/180
 #define MAX_SHEAR 3.73205080756        // tan(75)
+#define PI 3.14159265
 
 using namespace std;
 
@@ -98,6 +98,7 @@ class bgl_stats;
 
 class gtk_win
 {
+	int style_index;
 	string name, version;
 	
 	cairo_surface_t* cs;
@@ -109,6 +110,12 @@ class gtk_win
 	GtkWidget *vbox;		// 
 	GtkWidget *sidepane;
 	GtkWidget *statusbar;
+	GtkWidget *omnibox;
+	GtkWidget *searchentry, *searchbox;
+	#ifdef GTK+3
+	//GtkWidget *overlay;
+	//GtkWidget *query_grid;
+	#endif
 	vector<style_button*> sidepane_buttons;
 	
 	int win_current_width, win_current_height;
@@ -130,10 +137,8 @@ class gtk_win
 	double translate_u_factor, translate_d_factor, translate_l_factor, translate_r_factor;
 	double translate_u_value, translate_d_value, translate_l_value, translate_r_value;
 	
-	// to animate zoom
-	double num_frames, current_frame;
-	double tf_xleft, tf_xright, tf_ytop, tf_ybottom;
-	double del_xleft, del_xright, del_ytop, del_ybottom;
+	//for font description using pangocairo
+	char *font_desc;
 	
 	// GtkSpin buttons for preferences
 	GtkWidget *zoomin_spinner, *zoomout_spinner;
@@ -143,6 +148,7 @@ class gtk_win
 	GtkAdjustment *adj;
 	int hshear_spinner_handler_id, vshear_spinner_handler_id; 
 	int up_spinner_handler_id, down_spinner_handler_id, left_spinner_handler_id, right_spinner_handler_id;
+	
 	
 	#ifdef TOOLBAR
 	GtkWidget *toolbar;
@@ -233,7 +239,7 @@ class gtk_win
 	
 	//UI display
 	void update_statusbar_msg();
-	void draw_virtual_scrollbars();
+	
 	#ifdef TOOLBAR
 	void create_toolbar();
 	#endif
@@ -263,7 +269,7 @@ class gtk_win
 	bool highlight_image_maps;
 	void image_maps_store_transformed_coordinates();
 	void image_maps_highlight();
-	void image_maps_show_text_balloon();
+	void image_maps_show_text_balloon( cairo_t *cr );
 	
 	// for fullscreen
 	bool make_fullscreen;
@@ -302,7 +308,6 @@ class gtk_win
 	
 	/* ************************************************************************************************** */
 	public:
-	
 	// image maps
 	vector<image_map*> image_maps;
 	void toggle_image_map_visibility( ); //requires restricted access in future
@@ -373,6 +378,9 @@ class gtk_win
 	void setfontsize(cairo_t* cr,int pointsize);
 	void setfontface( cairo_t* cr, char* fontface, cairo_font_slant_t slant, cairo_font_weight_t weight);
 	void drawtext(cairo_t* cr, double xc, double yc, char *text, double boundx);
+	void setpangofontdesc( char *_font_desc );
+	void drawpangotext(cairo_t* cr, double xc, double yc, char *text, double &width, double &height,
+					   PangoStyle style, double boundx);
 	void drawarc(cairo_t* cr, double xcen, double ycen, double rad, double startang, double angextent);
 	void fillarc(cairo_t* cr, double xcen, double ycen, double rad, double startang, double angextent);
 	void drawellipticarc(cairo_t* cr, double xcen, double ycen, double radx, double rady, double startang, double angextent);
@@ -387,9 +395,6 @@ class gtk_win
 	bool drawroundedrectpath(cairo_t* cr, double x1, double y1, double x2, double y2, double xarc, double yarc);
 	void drawtextballoon(cairo_t* cr, double user_x1, double user_y1,  double tolerance, vector<string>* arr, int fontsize, 
 	                     char* fontface, double *rgb_border, double *rgba_fill,  double *rgb_text);
-	
-	//animations
-	gboolean animate_zoom();
 	
 	// functions for saving in a particular format
 	void save_as();
@@ -545,6 +550,13 @@ class bgl_stats
 	void get_event_count( char *buffer );
 	void get_resource_usage( char *buffer );
 };
+
+/*class features
+{
+	public:
+	gtk_win *application;
+	
+};*/
 
 #endif
 
