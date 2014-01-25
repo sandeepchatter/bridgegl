@@ -30,8 +30,28 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 	}
 	gboolean gtk_win::mainwin_draw_event (cairo_t *cr)
 	{
-		cairo_set_source_rgb(cr, 0.82745, 0.8549, 0.88627);
-		cairo_paint(cr);
+		int x1 = 0, y1 = 0;
+		int x2  = gtk_widget_get_allocated_width ( GTK_WIDGET(mainwin) );
+		int y2 = gtk_widget_get_allocated_height( GTK_WIDGET(mainwin) );
+		cairo_set_source_rgb(cr, 177/255.0, 177/255.0, 177/255.0);
+		setlinewidth(cr, 2);
+		cairo_move_to(cr, x1, y1 );
+		cairo_line_to(cr, x1, y2 );
+		cairo_line_to(cr, x2, y2 );
+		cairo_line_to(cr, x2, y1 );
+		cairo_close_path (cr);
+		cairo_stroke(cr);
+		setlinewidth(cr, 1);
+		cairo_move_to(cr, sdp_width+2, top_gui_height );
+		cairo_line_to(cr, sdp_width+2, y2-stbar_height );
+		cairo_stroke(cr);
+		cairo_move_to(cr, 0, y2-stbar_height  );
+		cairo_line_to(cr, x2, y2-stbar_height );
+		cairo_stroke(cr);
+		cairo_move_to(cr, 0, top_gui_height  );
+		cairo_line_to(cr, x2, top_gui_height );
+		cairo_stroke(cr);
+		
 		stats->count_expose_event++;
 		return false;
 	}
@@ -104,7 +124,7 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 	paint_canvas(cr);
 
 	cairo_restore(cr);
-
+	
 	if (in_window_zoom_mode)
 	{
 		cairo_set_source_rgba(cr, 0.882353, 0.67843, 0.12549, 0.4);
@@ -115,9 +135,9 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 	}
 	#ifdef BOUNDING_BOX
 		cairo_save (cr);
-		cairo_set_operator(cr, CAIRO_OPERATOR_XOR); 
+		//cairo_set_operator(cr, CAIRO_OPERATOR_XOR); 
 		cairo_identity_matrix(cr);
-		cairo_set_source_rgb(cr, 0, 0, 0);
+		cairo_set_source_rgb(cr, 127.0/255, 127.0/255, 127.0/255);
 		cairo_set_line_width(cr, 2);
 		cairo_move_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ytop) );
 		cairo_line_to(cr, user2win_x(saved_xleft),  user2win_y(saved_ybottom) );
@@ -128,10 +148,6 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 		cairo_restore (cr);
 	#endif
 
-	#ifdef VIRTUAL_SCROLLBARS
-		draw_virtual_scrollbars();
-	#endif
-	
 	#ifndef GTK+3
 		cairo_destroy (cr);
 	#endif
@@ -249,11 +265,16 @@ gboolean gtk_win::mainwin_key_press_event (GdkEventKey *event)
 		break;
 	
 		case 0x06d:
-		toggle_image_map_visibility( );
+		if (event->state & GDK_CONTROL_MASK)
+		{
+			gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(tog_maps), !highlight_image_maps);
+			//toggle_image_map_visibility( );
+		}
 		break;
 	
-		case 0x066:
-		toggle_fullscreen();
+		case 0xffc8:
+		gtk_check_menu_item_set_active( GTK_CHECK_MENU_ITEM(mi_fullscreen), !make_fullscreen);
+		//toggle_fullscreen();
 		break;
 	
 		case 0xffbe:
@@ -280,17 +301,43 @@ static gboolean mouse_position_tracker(GtkWidget *widget, GdkEventMotion *event,
 
 gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event)
 {
-	#ifdef FOLLOW_MOUSE_POINTER
-		GdkModifierType state;
+	GdkModifierType state;
 
-		if (event->is_hint)
-			gdk_window_get_pointer (event->window, &worldx, &worldy, &state);
-		else
+	if (event->is_hint)
+		gdk_window_get_pointer (event->window, &worldx, &worldy, &state);
+	else
+	{
+		worldx = event->x;
+		worldy = event->y;
+	}
+	
+	if ( worldx < sdp_width+3 && worldy < 45+5*40)
+	{
+		//cairo_t *cr;
+		//cr = gdk_cairo_create ( gtk_widget_get_window(GTK_WIDGET(mainwin)) );
+
+		for( int i = 0; i < 6; i++ )
 		{
-			worldx = event->x;
-			worldy = event->y;
-		}
+			if ( worldy > 45+i*40 && worldy < 45+(i+1)*40 )
+			{
+				// set a clip region for the expose event 
+				/*cairo_rectangle (cr, 0, 45+i*40,  sdp_width, 40);
+				cairo_clip (cr);
 
+				cairo_set_source_rgb(cr, 161/255.0, 114/255.0, 210/255.0);
+				cairo_paint(cr);
+				*/
+				style_index = i;
+				gtk_widget_queue_draw_area ( mainwin,  0, 0,  sdp_width+3, canvas_height);
+				return TRUE;
+			}
+		}
+		//cairo_destroy (cr);
+	}
+
+	
+	
+	#ifdef FOLLOW_MOUSE_POINTER
 		update_statusbar_msg();
 	#endif
 
@@ -325,6 +372,8 @@ gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event)
 		
 		gtk_widget_queue_draw_area ( canvas,  tx, ty, canvas_width, canvas_height);
 	}
+	
+	
 
 	if (user_mouse_position_active)
 	{
@@ -371,8 +420,10 @@ void gtk_win::toggle_fullscreen()
 	else
 	{
 		gtk_window_unfullscreen(GTK_WINDOW(mainwin) );
-		gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), TRUE);
-		gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), FALSE);
+		#ifdef TOOLBAR
+			gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), TRUE);
+			gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), FALSE);
+		#endif
 	}
 }
 
@@ -386,17 +437,22 @@ static void chk_mainwin_state_event_fcn(GtkWidget *widget, GdkEventWindowState *
 void gtk_win::chk_mainwin_state_event(GdkEventWindowState *event)
 {
 	// at present checking only for fullscreen and unfullscreen events
-	if ( toolbar_created && make_fullscreen && event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN )
+	if ( make_fullscreen && event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN )
 	{
-		fprintf(stderr, "Window Fullscreen Successfull \n");
-		gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), FALSE);
-		gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), TRUE);
+		//fprintf(stderr, "Window Fullscreen Successfull \n");
+		#ifdef TOOLBAR
+		if ( toolbar_created )
+		{
+			gtk_widget_set_sensitive(GTK_WIDGET(ti_fullscreen), FALSE);
+			gtk_widget_set_sensitive(GTK_WIDGET(ti_exitfullscreen), TRUE);
+		}
+		#endif
 	}
-	//else if ( toolbar_created && !make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
-	//{
-	//	fprintf(stderr, "Window Exited Fullscreen\n");
-	//}
-	else if ( toolbar_created && make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
+	else if ( !make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
+	{
+		fprintf(stderr, "Window Exited Fullscreen\n");
+	}
+	else if ( make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
 	{
 		fprintf(stderr, "Window Fullscreen Un-successfull \n");
 	}
@@ -514,23 +570,6 @@ void gtk_win::rotate_anticlockwise()
 	redraw();
 }
 
-static gboolean animate_zoom_fcn( gpointer data	)
-{
-	gtk_win* g_win = (gtk_win*) data;
-	return g_win->animate_zoom();
-}
-
-gboolean gtk_win::animate_zoom()
-{
-	xleft = xleft + del_xleft;
-	xright = xright + del_xright;
-	ytop = ytop + del_ytop;
-	ybottom = ybottom + del_ybottom;
-	focus();
-	current_frame++;
-	return (current_frame < num_frames);
-} 
-
 gboolean gtk_win::mainwin_mouse_button_event (GdkEventButton *event)
 {
 	double x, y;
@@ -555,33 +594,22 @@ gboolean gtk_win::mainwin_mouse_button_event (GdkEventButton *event)
 	}
 	else if ( event->type == GDK_BUTTON_RELEASE && window_zoom_mode_on)
 	{
-		gtk_toggle_tool_button_set_active(GTK_TOGGLE_TOOL_BUTTON(zoom_window), 0);
+		#ifdef TOOLBAR
+			gtk_toggle_tool_button_set_active(GTK_TOGGLE_TOOL_BUTTON(zoom_window), 0);
+		#endif
 		window_zoom_mode_on = false;
 		in_window_zoom_mode = false;
 		z_xright  = x;
 		z_ybottom = y;
 		
-		#ifdef EFFECTS
-			tf_xleft   = ((z_xleft < z_xright)?z_xleft:z_xright);
-			tf_xright  = ((z_xleft > z_xright)?z_xleft:z_xright); 
-			tf_ytop    = ((z_ytop < z_ybottom)?z_ytop:z_ybottom);
-			tf_ybottom = ((z_ytop > z_ybottom)?z_ytop:z_ybottom);
-			del_xleft  = (tf_xleft - xleft)/num_frames;
-			del_xright = (tf_xright - xright)/num_frames;
-			del_ytop   = (tf_ytop - ytop)/num_frames;
-			del_ybottom = (tf_ybottom - ybottom)/num_frames;
-			current_frame = 0;
-			cerr<<"del_xleft: "<<del_xleft<<", del_xright:"<<del_xright<<endl;
-			g_timeout_add(25, (GSourceFunc) animate_zoom_fcn, this);
-		#else
-			xleft   = ((z_xleft < z_xright)?z_xleft:z_xright);
-			xright  = ((z_xleft > z_xright)?z_xleft:z_xright); 
-			ytop    = ((z_ytop < z_ybottom)?z_ytop:z_ybottom);
-			ybottom = ((z_ytop > z_ybottom)?z_ytop:z_ybottom);
-		#endif
+		xleft   = ((z_xleft < z_xright)?z_xleft:z_xright);
+		xright  = ((z_xleft > z_xright)?z_xleft:z_xright); 
+		ytop    = ((z_ytop < z_ybottom)?z_ytop:z_ybottom);
+		ybottom = ((z_ytop > z_ybottom)?z_ytop:z_ybottom);
 		focus();
 		coming_out_of_window_zoom_mode = true;
 	}
+	
 	update_statusbar_msg();
 	
 	if (!going_into_window_zoom_mode && !coming_out_of_window_zoom_mode)
@@ -889,52 +917,51 @@ void gtk_win::show_statistics_dialog(  )
 
 void gtk_win::show_about_dialouge(  )
 {
-	#ifndef EXPERIMENTAL_ABOUT_DIALOG
-		GtkWidget *dialog, *content_area;
-		GtkWidget *main_hbox;
-		GtkWidget *logo;
-		GtkWidget *vbox; 
-		GtkWidget *name_label;
-		GtkWidget *copyright_label;
-		GtkWidget *comments_label;
-		GtkWidget *license_label;
-		GtkWidget *documentation_label;
-		
-		dialog = gtk_dialog_new_with_buttons ("About BridgeGL",
-	                                 GTK_WINDOW(mainwin),
-	                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
-	                                 GTK_RESPONSE_NONE,
-	                                 NULL);
-	        
-	    content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
-	        
-	    main_hbox = gtk_hbox_new (FALSE, 5);
-		gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 10);
-		gtk_container_add (GTK_CONTAINER (content_area), main_hbox);
-		
-		logo = gtk_image_new_from_file ("logo.png");
-	    gtk_box_pack_start (GTK_BOX (main_hbox), logo, TRUE, TRUE, 5);
-	        
-        vbox = gtk_vbox_new (FALSE, 5);
-        gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
-        gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 5);
+	GtkWidget *dialog, *content_area;
+	GtkWidget *main_hbox;
+	GtkWidget *logo;
+	GtkWidget *vbox; 
+	GtkWidget *name_label;
+	GtkWidget *copyright_label;
+	GtkWidget *comments_label;
+	GtkWidget *license_label;
+	GtkWidget *documentation_label;
+	
+	dialog = gtk_dialog_new_with_buttons ("About BridgeGL",
+                                 GTK_WINDOW(mainwin),
+                                 GTK_DIALOG_MODAL, GTK_STOCK_CLOSE,
+                                 GTK_RESPONSE_NONE,
+                                 NULL);
         
-        name_label = gtk_label_new(NULL);
-        string name_and_version = "<span size=\"x-large\"><b>" + name + " " + version + "</b></span>";
-        gtk_label_set_markup (GTK_LABEL (name_label), name_and_version.c_str() );
+    content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
         
-        copyright_label = gtk_label_new(NULL);
-        string copyright = "<i>(c)2013</i> <b>Sandeep Chatterjee</b> [chatte45@eecg.utoronto.ca]";
-        gtk_label_set_markup (GTK_LABEL (copyright_label), copyright.c_str() );
-        gtk_label_set_justify(GTK_LABEL(copyright_label), GTK_JUSTIFY_LEFT);
+    main_hbox = gtk_hbox_new (FALSE, 5);
+	gtk_container_set_border_width (GTK_CONTAINER (main_hbox), 10);
+	gtk_container_add (GTK_CONTAINER (content_area), main_hbox);
+	
+	logo = gtk_image_new_from_file ("logo.png");
+    gtk_box_pack_start (GTK_BOX (main_hbox), logo, TRUE, TRUE, 5);
         
-        comments_label = gtk_label_new(NULL);
-        string comment = "An easy-to-use light-weight 2D-graphics package powered by <a href=\"http://www.cairographics.org/\">Cairo</a> \nand <a href=\"http://www.gtk.org/\">GTK+</a>";
-        gtk_label_set_markup (GTK_LABEL (comments_label), comment.c_str() );
-        gtk_label_set_justify(GTK_LABEL(comments_label), GTK_JUSTIFY_LEFT);
-        gtk_misc_set_alignment (GTK_MISC (comments_label), 0, 0);
-	        
-	        license_label = gtk_label_new("Released under GNU license:\n\
+    vbox = gtk_vbox_new (FALSE, 5);
+    gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
+    gtk_box_pack_start (GTK_BOX (main_hbox), vbox, TRUE, TRUE, 5);
+    
+    name_label = gtk_label_new(NULL);
+    string name_and_version = "<span size=\"x-large\"><b>" + name + " " + version + "</b></span>";
+    gtk_label_set_markup (GTK_LABEL (name_label), name_and_version.c_str() );
+    
+    copyright_label = gtk_label_new(NULL);
+    string copyright = "<i>(c)2013</i> <b>Sandeep Chatterjee</b> [chatte45@eecg.utoronto.ca]";
+    gtk_label_set_markup (GTK_LABEL (copyright_label), copyright.c_str() );
+    gtk_label_set_justify(GTK_LABEL(copyright_label), GTK_JUSTIFY_LEFT);
+    
+    comments_label = gtk_label_new(NULL);
+    string comment = "An easy-to-use light-weight 2D-graphics package powered by <a href=\"http://www.cairographics.org/\">Cairo</a> \nand <a href=\"http://www.gtk.org/\">GTK+</a>";
+    gtk_label_set_markup (GTK_LABEL (comments_label), comment.c_str() );
+    gtk_label_set_justify(GTK_LABEL(comments_label), GTK_JUSTIFY_LEFT);
+    gtk_misc_set_alignment (GTK_MISC (comments_label), 0, 0);
+        
+        license_label = gtk_label_new("Released under GNU license:\n\
 This program is free software: you can redistribute it and/or modify it\n\
 under the terms of the GNU General Public License as published by the\n\
 Free Software Foundation, either version 3 of the License, or (at your\n\
@@ -944,118 +971,25 @@ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY\n\
 or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public\n\
 License for more details.");
 
-        gtk_label_set_justify(GTK_LABEL(license_label), GTK_JUSTIFY_LEFT);
-        gtk_misc_set_alignment (GTK_MISC (license_label), 0, 0);
+    gtk_label_set_justify(GTK_LABEL(license_label), GTK_JUSTIFY_LEFT);
+    gtk_misc_set_alignment (GTK_MISC (license_label), 0, 0);
+    
+    documentation_label = gtk_label_new(NULL);
+    string documentation = "For documentation, click <a href=\"http://www.eecg.utoronto.ca/~chatte45/bgl_doc/index.html\">Here</a>";
+    gtk_label_set_markup (GTK_LABEL (documentation_label), documentation.c_str() );
+     
+    gtk_box_pack_start (GTK_BOX (vbox), name_label, TRUE, TRUE, 5);
+    gtk_box_pack_start (GTK_BOX (vbox), copyright_label, TRUE, TRUE, 5);
+    gtk_box_pack_start (GTK_BOX (vbox), comments_label, TRUE, TRUE, 5);
+    gtk_box_pack_start (GTK_BOX (vbox), license_label, TRUE, TRUE, 5);
+    gtk_box_pack_start (GTK_BOX (vbox), documentation_label, TRUE, TRUE, 5);
         
-        documentation_label = gtk_label_new(NULL);
-        string documentation = "For documentation, click <a href=\"http://www.eecg.utoronto.ca/~chatte45/bgl_doc/index.html\">Here</a>";
-        gtk_label_set_markup (GTK_LABEL (documentation_label), documentation.c_str() );
-         
-        gtk_box_pack_start (GTK_BOX (vbox), name_label, TRUE, TRUE, 5);
-        gtk_box_pack_start (GTK_BOX (vbox), copyright_label, TRUE, TRUE, 5);
-        gtk_box_pack_start (GTK_BOX (vbox), comments_label, TRUE, TRUE, 5);
-        gtk_box_pack_start (GTK_BOX (vbox), license_label, TRUE, TRUE, 5);
-        gtk_box_pack_start (GTK_BOX (vbox), documentation_label, TRUE, TRUE, 5);
-	        
-        /* Ensure that the dialog box is destroyed when the user responds */
-        g_signal_connect_swapped (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
-		#ifdef UNDECORATED_DIALOG
-			gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
-		#endif
-		gtk_widget_show_all (dialog);
-		#endif
-	
-	#ifdef EXPERIMENTAL_ABOUT_DIALOG
-		double xcen = canvas_width/2;
-		double ycen = canvas_height/2; 
-		double 
-		x             = xcen - 250,        // parameters like cairo_rectangle
-		y             = ycen - 200,
-		width         = 500,
-		height        = 400,
-		aspect        = 1.25,     // aspect ratio 
-		corner_radius = height / 10.0;   // and corner curvature radius
-
-		double radius = corner_radius / aspect;
-		double degrees = M_PI / 180.0;
-
-		cairo_t* cr = gdk_cairo_create (canvas->window);
-
-		cairo_new_sub_path (cr);
-		cairo_arc (cr, x + width - radius, y + radius, radius, -90 * degrees, 0 * degrees);
-		cairo_arc (cr, x + width - radius, y + height - radius, radius, 0 * degrees, 90 * degrees);
-		cairo_arc (cr, x + radius, y + height - radius, radius, 90 * degrees, 180 * degrees);
-		cairo_arc (cr, x + radius, y + radius, radius, 180 * degrees, 270 * degrees);
-		cairo_close_path (cr);
-
-		cairo_set_source_rgba (cr, 0, 0, 0, 0.85);
-		cairo_fill_preserve (cr);
-		cairo_set_source_rgba (cr, 0.5, 0.5, 0.5, 1);
-		cairo_set_line_width (cr, 5.0);
-		cairo_stroke (cr);
-	
-		cairo_select_font_face (cr, "Sans",
-		    CAIRO_FONT_SLANT_NORMAL,
-		    CAIRO_FONT_WEIGHT_NORMAL);
-		
-		y = y - 15;
-		cairo_set_font_size (cr, 40.0);
-		cairo_set_source_rgb (cr, 1, 1, 1);
-		cairo_move_to (cr, x + 30, y + 80);
-		cairo_show_text (cr, "BridgeGL 1.0");
-		cairo_set_font_size (cr, 20.0);
-		cairo_move_to (cr, x + 30, y + 110);
-		cairo_show_text (cr, "(c) Sandeep Chatterjee 2013"); 
-		cairo_set_font_size (cr, 17.0);
-		cairo_move_to (cr, x + 30, y + 135);
-		cairo_show_text (cr, "[chatte45@eecg.utoronto.ca]");
-		cairo_move_to (cr, x + 30, y + 160);
-		cairo_show_text (cr, "www.eecg.utoronto.ca/~chatte45/doc/index.html");
-	
-		cairo_pattern_t *pat;
-
-		double sep_x1 = x+80, sep_y1 = y+175, sep_x2 = x+width-80;
-
-		pat = cairo_pattern_create_linear (sep_x1, sep_y1,  sep_x2, sep_y1);
-		cairo_pattern_add_color_stop_rgba (pat, 1, 1, 1, 1, 0);
-		cairo_pattern_add_color_stop_rgba (pat, 0.5, 0.5, 0.5, 0.5, 1);
-		cairo_pattern_add_color_stop_rgba (pat, 0, 1, 1, 1, 0);
-		cairo_rectangle (cr, sep_x1, sep_y1-1.5, sep_x2-sep_x1, 3);
-		cairo_set_source (cr, pat);
-		cairo_fill (cr);
-		cairo_pattern_destroy (pat);
-	
-		cairo_set_source_rgb (cr, 1, 1, 1);
-		cairo_set_font_size (cr, 20.0);
-		cairo_move_to (cr, x + 30, y + 205);
-		cairo_show_text (cr, "Released under GNU License");
-		cairo_set_font_size (cr, 13.0);
-		cairo_move_to (cr, x + 30, y + 230);
-		cairo_show_text (cr, "This program is free software: you can redistribute it and/or modify");
-		cairo_move_to (cr, x + 30, y + 245);
-		cairo_show_text (cr, "it under the terms of the GNU General Public License as published");
-		cairo_move_to (cr, x + 30, y + 260);
-		cairo_show_text (cr, "by the Free Software Foundation, either version 3 of the License,");
-		cairo_move_to (cr, x + 30, y + 275);
-		cairo_show_text (cr, "or (at your option) any later version.");
-		cairo_move_to (cr, x + 40, y + 295);
-		cairo_show_text (cr, "This program is distributed in the hope that it will be useful, but");
-		cairo_move_to (cr, x + 30, y + 310);
-		cairo_show_text (cr, "WITHOUT ANY WARRANTY; without even the implied warranty of");
-		cairo_move_to (cr, x + 30, y + 325);
-		cairo_show_text (cr, "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See");
-		cairo_move_to (cr, x + 30, y + 340);
-		cairo_show_text (cr, "the GNU General Public License for more details.");
-		cairo_move_to (cr, x + 40, y + 360);
-		cairo_show_text (cr, "You should have received a copy of the GNU General Public ");
-		cairo_move_to (cr, x + 30, y + 375);
-		cairo_show_text (cr, "License along with this program. If not, get it here: ");
-		cairo_set_font_size (cr, 17.0);
-		cairo_move_to (cr, x + 130, y + 395);
-		cairo_show_text (cr, "www.gnu.org/licenses/");
-	
-		cairo_destroy(cr);
+    /* Ensure that the dialog box is destroyed when the user responds */
+    g_signal_connect_swapped (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
+	#ifdef UNDECORATED_DIALOG
+		gtk_window_set_decorated (GTK_WINDOW(dialog), FALSE);
 	#endif
+	gtk_widget_show_all (dialog);
 }
 
 /* Accessor functions for settings */
@@ -1177,13 +1111,14 @@ void gtk_win::paint_canvas(cairo_t *cr)
 	horizontal_shear, 1.0,
 	0., 0.);
 	cairo_transform(cr, &matrix);
+	//this->cr = cr;
 	
 	drawscreen (canvas, cr);
 	// image maps
 	image_maps_store_transformed_coordinates();
 	if ( highlight_image_maps )
 		image_maps_highlight();
-	image_maps_show_text_balloon();
+	image_maps_show_text_balloon( cr );
 }
 
 gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
@@ -1195,6 +1130,7 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	name = "BridgeGL";
 	version = "1.4";	
 	
+	style_index = -1;
 	win_current_width  = onset_width;
 	win_current_height = onset_height;
 	tx = 0;
@@ -1204,19 +1140,22 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	user_ty = 0; 
 	drawscreen = _drawscreen;
 	window_zoom_mode_on = false;
+	font_desc = "Sans Normal 12";
 	
 	// These are desired value,s actual values are
 	// stored after the widgets are associated with a screen  
 	stbar_height = 30;
-	sdp_width = 90;
-	top_gui_height = 67;
+	sdp_width = 120;
+	top_gui_height = 30;
 	
 	type = PNG;
 	angle = 0;
 	
 	highlight_image_maps = false;
 	make_fullscreen = false;
-	toolbar_created = false;
+	#ifdef TOOLBAR
+		toolbar_created = false;
+	#endif
 	
 	// shear transform
 	max_slope = pow(10, 10);
@@ -1238,7 +1177,6 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	#endif
 	
 	// zoom and translate
-	num_frames = 16;
 	zoom_in_value = 1.04;
 	zoom_out_value = 0.96;
 	translate_u_value = 5;
@@ -1281,7 +1219,35 @@ void gtk_win::init_world( double x1, double y1, double x2, double y2 )
 	//g_mem_set_vtable (glib_mem_profiler_table);
 	//g_atexit (g_mem_profile);
 	
-	gtk_init (NULL, NULL); 
+	gtk_init (NULL, NULL);
+	
+	#ifdef GTK+3
+	#ifdef APPLY_CSS
+		/*---------------- CSS ----------------------------------------------*/
+		GtkCssProvider *provider = gtk_css_provider_new ();
+
+	
+		GError *error = 0;
+		gsize bytes_written, bytes_read;
+
+		const gchar* home = "css/style.css"; 
+		//const gchar* home = "css/style-dark.css";  
+
+		gtk_css_provider_load_from_path (provider,
+		g_filename_to_utf8(home, strlen(home), &bytes_read, &bytes_written, &error),
+		NULL);
+
+		GdkDisplay *display = gdk_display_get_default ();
+		GdkScreen *screen = gdk_display_get_default_screen (display);
+
+		gtk_style_context_add_provider_for_screen (
+		screen, GTK_STYLE_PROVIDER (provider),
+		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
+		g_object_unref (provider);
+		/*----------------------------------------------------------------*/
+	#endif
+	#endif
 }
 
 void
@@ -1312,6 +1278,17 @@ void gtk_win::init_graphics( char* windowtitle )
 	int canvas_height = win_current_height - top_gui_height-stbar_height;
 	gtk_widget_set_size_request (canvas, canvas_width, canvas_height);
 	
+	/* For future use, using GTK overlay to display powerful UI 
+	overlay = gtk_overlay_new();
+	gtk_widget_set_size_request (overlay, canvas_width, canvas_height);
+	gtk_container_add (GTK_CONTAINER (overlay), canvas);
+	
+	query_grid = gtk_grid_new ();
+  	gtk_widget_set_size_request (query_grid, 100, 100);
+	gtk_widget_set_halign (query_grid, GTK_ALIGN_END);
+    gtk_widget_set_valign (query_grid, GTK_ALIGN_START);
+    gtk_overlay_add_overlay (GTK_OVERLAY (overlay), query_grid);*/
+	
 	statusbar = gtk_statusbar_new();
 	gtk_widget_set_size_request (statusbar, win_current_width, stbar_height);
 	
@@ -1329,32 +1306,36 @@ void gtk_win::init_graphics( char* windowtitle )
 	sidepane = gtk_vbox_new(FALSE, 1);
 	gtk_widget_set_size_request (sidepane, sdp_width, canvas_height);
 	
-	gtk_box_pack_start(GTK_BOX(hbox), sidepane, FALSE, FALSE, 0);
-	//gtk_box_pack_start(GTK_BOX(hbox), vseparator, FALSE, TRUE, 0);
-	gtk_box_pack_end(GTK_BOX(hbox), canvas, TRUE, TRUE, 0); 
+	gtk_box_pack_start(GTK_BOX(hbox), sidepane, FALSE, FALSE, 1);
+	gtk_box_pack_end(GTK_BOX(hbox), canvas, TRUE, TRUE, 1); 
 	
 	gtk_container_add (GTK_CONTAINER (mainwin), vbox);
-	
-	//hseparator1 = gtk_hseparator_new();
-	//hseparator2 = gtk_hseparator_new();
 	
 	for( int i = sidepane_buttons.size()-1; i >=0; i-- )
 	{
 		gtk_box_pack_start(GTK_BOX(sidepane), sidepane_buttons[i]->get_widget(), FALSE, FALSE, 0);
 	}
 	
+	omnibox = gtk_hbox_new(FALSE, 1);
+	gtk_widget_set_size_request (omnibox, canvas_width+sdp_width, 30);
+	
+	searchentry = gtk_entry_new ();
+	searchbox = gtk_hbox_new (FALSE, 1);
+	gtk_box_pack_start (GTK_BOX (searchbox), searchentry, TRUE, TRUE, 0);
+	
 	#ifdef MENU_BAR
 	create_custom_menu();
-	gtk_box_pack_start(GTK_BOX(vbox), menubar, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(omnibox), menubar, FALSE, FALSE, 0);
 	#endif
+	gtk_box_pack_end(GTK_BOX(omnibox), searchbox, FALSE, FALSE, 0);
 	
+	gtk_box_pack_start(GTK_BOX(vbox), omnibox, FALSE, TRUE, 0);
 	#ifdef TOOLBAR
 	create_toolbar();
 	gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 0);
+	fprintf(stderr, "\n**** NOTE THAT TOOLBAR SUPPORT IS EXPERIMENTAL!! ****\n");
 	#endif
-	
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, TRUE, TRUE, 0); 
-	
 	gtk_box_pack_end(GTK_BOX(vbox), statusbar, FALSE, TRUE, 0);
 	
 	g_signal_connect (mainwin, "destroy", G_CALLBACK (gtk_main_quit), NULL); // Quit graphically 
@@ -1396,20 +1377,28 @@ void gtk_win::init_graphics( char* windowtitle )
 	else
 		gtk_window_set_icon(GTK_WINDOW(mainwin), pixbuf);
 	
+	gtk_container_set_border_width (GTK_CONTAINER (mainwin), 0);
+	
 	// Show the window on the screen 
-	gtk_widget_show_all (mainwin); 	
+	gtk_widget_show_all (mainwin);
 	
 	// try to get width and height
-	
 	#ifdef GTK+3
 		stbar_height = gtk_widget_get_allocated_height( GTK_WIDGET(statusbar) );
 		sdp_width    = gtk_widget_get_allocated_width ( GTK_WIDGET(sidepane) );
-		top_gui_height = gtk_widget_get_allocated_height( GTK_WIDGET(menubar) )+
-		                 gtk_widget_get_allocated_height( GTK_WIDGET(toolbar) );
+		top_gui_height = gtk_widget_get_allocated_height( GTK_WIDGET(menubar) )
+					#ifdef TOOLBAR
+		                 +gtk_widget_get_allocated_height( GTK_WIDGET(toolbar) )
+		            #endif     
+		                 ;
 	#else
 		stbar_height = statusbar->allocation.height;
 		sdp_width = sidepane->allocation.width;
-		top_gui_height = menubar->allocation.height+toolbar->allocation.height;
+		top_gui_height = menubar->allocation.height
+		#ifdef TOOLBAR
+			+toolbar->allocation.height
+		#endif	
+			;
 	#endif
 	 // Enter the main event loop, and wait for user interaction 
 	gtk_main (); //*/
@@ -1489,8 +1478,8 @@ void gtk_win::create_custom_menu()
 	mi_zoomout = gtk_menu_item_new_with_label("Zoom-Out");
 	mi_zoomfit = gtk_menu_item_new_with_label("Zoom-Fit");
 	mi_sep2 = gtk_separator_menu_item_new();
-	tog_maps = gtk_check_menu_item_new_with_label("View Image-maps");
-	mi_fullscreen = gtk_check_menu_item_new_with_label("Fullscreen");
+	tog_maps = gtk_check_menu_item_new_with_label("View Image-maps (Ctrl+M)");
+	mi_fullscreen = gtk_check_menu_item_new_with_label("Fullscreen (F11)");
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(tog_maps), FALSE);
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(mi_fullscreen), FALSE);
 	
@@ -1523,9 +1512,9 @@ void gtk_win::create_custom_menu()
 	g_signal_connect(G_OBJECT(mi_zoomfit), "activate",
 	G_CALLBACK(zoom_fit_fcn), (gpointer)this);
 	g_signal_connect(G_OBJECT(tog_maps), "activate", 
-        G_CALLBACK(highlight_image_maps_fcn), (gpointer)this);
-        g_signal_connect(G_OBJECT(mi_fullscreen), "activate", 
-        G_CALLBACK(toggle_fullscreen_fcn), (gpointer)this);
+    G_CALLBACK(highlight_image_maps_fcn), (gpointer)this);
+    g_signal_connect(G_OBJECT(mi_fullscreen), "activate", 
+    G_CALLBACK(toggle_fullscreen_fcn), (gpointer)this);
         
         //create Image submenu
 	image = gtk_menu_item_new_with_mnemonic("_Image");
@@ -1545,15 +1534,15 @@ void gtk_win::create_custom_menu()
 	gtk_widget_add_accelerator(mi_shearHplus, "activate", accel_group, 
 	GDK_h, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 	gtk_widget_add_accelerator(mi_shearHminus, "activate", accel_group, 
-	GDK_h, GDK_SHIFT_MASK, GTK_ACCEL_VISIBLE);
+	GDK_h, (GdkModifierType) (GDK_CONTROL_MASK | GDK_SHIFT_MASK), GTK_ACCEL_VISIBLE);
 	gtk_widget_add_accelerator(mi_shearVplus, "activate", accel_group, 
 	GDK_v, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 	gtk_widget_add_accelerator(mi_shearVminus, "activate", accel_group, 
-	GDK_v, GDK_SHIFT_MASK, GTK_ACCEL_VISIBLE);
+	GDK_v, (GdkModifierType) (GDK_CONTROL_MASK | GDK_SHIFT_MASK), GTK_ACCEL_VISIBLE);
 	gtk_widget_add_accelerator(mi_rotateClockwise, "activate", accel_group, 
 	GDK_r, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 	gtk_widget_add_accelerator(mi_rotateantiClockwise, "activate", accel_group, 
-	GDK_r, GDK_SHIFT_MASK, GTK_ACCEL_VISIBLE);
+	GDK_r, (GdkModifierType) (GDK_CONTROL_MASK | GDK_SHIFT_MASK), GTK_ACCEL_VISIBLE);
 	
 	gtk_menu_item_set_submenu(GTK_MENU_ITEM(image), imagemenu);
 	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_translateUp);
@@ -1764,57 +1753,6 @@ void gtk_win::redraw()
 	//	            gtk_statusbar_get_context_id( GTK_STATUSBAR(statusbar), "Refreshed Drawing Area"), "Refreshed Drawing Area");
 }
 
-void gtk_win::draw_virtual_scrollbars()
-{
-	//#CCCCCC"
-	#ifdef GTK+3
-		cr = gdk_cairo_create ( gtk_widget_get_window(GTK_WIDGET(canvas)) );
-	#else
-		cr = gdk_cairo_create (canvas->window);
-	#endif
-	cairo_set_source_rgba(cr, 0.5, 0.5, 0.5, 0.6);
-
-	double xratio = (saved_xright - saved_xleft)/canvas_width; 
-	double yratio = (saved_ybottom - saved_ytop)/canvas_height;
-	
-	double scroll_xleft   = xleft*xratio;
-	if ( scroll_xleft < 0 )
-		scroll_xleft = 0;
-
-	double scroll_xright = canvas_width - (saved_xright - xright)*xratio;
-	if ( scroll_xright > canvas_width )
-		scroll_xright = canvas_width; 
-	
-	double scroll_ytop    = ytop*yratio;
-	if ( scroll_ytop < 0 )
-		scroll_ytop = 0;
-	
-	double scroll_ybottom = canvas_height - (saved_ybottom - ybottom)*yratio;
-	if ( scroll_ybottom > canvas_height )
-		scroll_ybottom = canvas_height;
-	
-	#ifdef DEBUG
-		printf("scroll_xleft: %.2f, scroll_xright: %.2f, scroll_ytop: %.2f, scroll_ybottom: %.2f\n\n", 
-	       		scroll_xleft, scroll_xright, scroll_ytop, scroll_ybottom);
-	#endif
-	
-	cairo_move_to(cr, scroll_xleft, canvas_height - 8 );
-	cairo_line_to(cr, scroll_xleft, canvas_height - 3 );
-	cairo_line_to(cr, scroll_xright, canvas_height - 3 );
-	cairo_line_to(cr, scroll_xright, canvas_height - 8 );
-	cairo_line_to(cr, scroll_xleft, canvas_height - 8 );
-	cairo_fill(cr);
-	
-	cairo_move_to(cr, 3, scroll_ytop );
-	cairo_line_to(cr, 3, scroll_ybottom );
-	cairo_line_to(cr, 8, scroll_ybottom );
-	cairo_line_to(cr, 8, scroll_ytop );
-	cairo_line_to(cr, 3, scroll_ytop );
-	cairo_fill(cr);
-	
-	cairo_destroy(cr);
-}
-
 void gtk_win::update_statusbar_msg()
 {
 	gchar *str;
@@ -1902,7 +1840,7 @@ double gtk_win::user2win_y( double user_y )
 	
 double gtk_win::win2user_x( double world_x )
 {
-	return ( xleft + (world_x - sdp_width - 1)/xmult );
+	return ( xleft + (world_x - sdp_width - 3)/xmult );
 }
 	
 double gtk_win::win2user_y( double world_y )
@@ -1912,11 +1850,13 @@ double gtk_win::win2user_y( double world_y )
 
 double gtk_win::user2context_x( double user_x )
 {
+	//printf("user2context_x: %f --> %f\n", user_x, user_x*xmult);
 	return user_x*xmult;
 }
 	
 double gtk_win::user2context_y( double user_y )
 {
+	//printf("user2context_y: %f --> %f\n", user_y, user_y*ymult);
 	return user_y*ymult;
 }
 
@@ -2019,41 +1959,85 @@ void gtk_win::translate_coordinates(cairo_t* cr, double _tx, double _ty )
 {
 	user_tx += _tx;
 	user_ty += _ty;
-	//cairo_translate(cr,  user2win_x(0) + _tx*xmult, user2win_y(0) + _ty*ymult);
 	cairo_translate(cr, _tx*xmult, _ty*ymult);
 }
 
+double max(double a, double b)
+{
+	return (a > b)? a : b;
+}
+
+double min(double a, double b)
+{
+	return (a > b)? b : a;
+}
+
+
 bool gtk_win::rect_off_screen (cairo_t* cr, double x1, double y1, double x2, double y2) 
-{	
-	double mapped_x1 = xmult*x1;
-	double mapped_y1 = ymult*y1;
-	cairo_user_to_device(cr, &mapped_x1, &mapped_y1);
+{
+	double user_x1 = xmult*x1;
+	double user_y1 = ymult*y1;
+	double user_x2 = xmult*x2;
+	double user_y2 = ymult*y2;
+
+	cairo_user_to_device(cr, &user_x1, &user_y1);
+	cairo_user_to_device(cr, &user_x2, &user_y2);
 	
-	double mapped_x2 = xmult*x2;
-	double mapped_y2 = ymult*y2;
-	cairo_user_to_device(cr, &mapped_x1, &mapped_y2);
+	double hl_width = cairo_get_line_width(cr)/2.0;
+	double mapped_x1 = min(user_x1, user_x2);
+	double mapped_y1 = min(user_y1, user_y2);
+	double mapped_x2 = max(user_x1, user_x2);
+	double mapped_y2 = max(user_y1, user_y2);
+	
+	cairo_matrix_t matrix;
+	cairo_get_matrix( cr, &matrix);
+	
+	int angle = (int)round( atan( matrix.xy/matrix.xx)/CONV_DEG_TO_RAD );
+	if (  angle%180 != 0  ) // if its rotated such that angle are not 180 or 360.
+	{
+		double user_x1r = xmult*x1;
+		double user_y1r = ymult*y1;
+		double user_x2r = xmult*x2;
+		double user_y2r = ymult*y2;
+
+		cairo_user_to_device(cr, &user_x1r, &user_y2r);
+		cairo_user_to_device(cr, &user_x2r, &user_y1r);
+	
+		double mapped_x1r = min(user_x1r, user_x2r);
+		double mapped_y1r = min(user_y1r, user_y2r);
+		double mapped_x2r = max(user_x1r, user_x2r);
+		double mapped_y2r = max(user_y1r, user_y2r);
+		
+		mapped_x1 = min( min(mapped_x1, mapped_x1r), min(mapped_x2, mapped_x2r) ) ;
+		mapped_x2 = max( max(mapped_x1, mapped_x1r), max(mapped_x2, mapped_x2r) ) ;
+		mapped_y1 = min( min(mapped_y1, mapped_y1r), min(mapped_y2, mapped_y2r) ) ;
+		mapped_y2 = max( max(mapped_y1, mapped_y1r), max(mapped_y2, mapped_y2r) ) ;
+	}
+	
+	#ifdef BOUNDING_BOX
+		cairo_save(cr);
+		cairo_identity_matrix(cr);
+		cairo_set_source_rgba(cr, 127/255.0, 127/255.0, 127/255.0, 0.6);
+		setlinewidth(cr, 1);
+		cairo_move_to(cr, mapped_x1- hl_width, mapped_y1- hl_width );
+		cairo_line_to(cr, mapped_x1- hl_width, mapped_y2+ hl_width );
+		cairo_line_to(cr, mapped_x2+ hl_width, mapped_y2+ hl_width );
+		cairo_line_to(cr, mapped_x2+ hl_width, mapped_y1- hl_width );
+		cairo_close_path (cr);
+		cairo_stroke(cr);
+		cairo_restore(cr);
+		stats->count_d_rects++;
+	#endif
 	
 	// instead, work in canvas coordinates directly
-	if (mapped_x1 < 0 && mapped_x2 < 0)
+	if ( mapped_x1-hl_width > canvas_width || mapped_x2+hl_width < 0 )
 	{
 		return (1);
 	}
-	
-	if (mapped_x1 > canvas_width && mapped_x2 > canvas_width)
+	if (mapped_y1-hl_width > canvas_height || mapped_y2+hl_width < 0)
 	{
 		return (1);
 	}
-	
-	if (mapped_y1 < 0 && mapped_y2 < 0)
-	{
-		return (1);
-	}
-	
-	if (mapped_y1 > canvas_height && mapped_y2 > canvas_height)
-	{
-		return (1);
-	}
-	
 	return (0);
 }
 
@@ -2121,6 +2105,7 @@ void gtk_win::drawline( cairo_t* cr, double x1, double y1, double x2, double y2)
 	 stats->count_lines++;
 }
 
+/****** CAIRO TOY API to draw Fonts ********/
 void gtk_win::setfontsize(cairo_t* cr, int pointsize)
 {
 	#ifdef SCALE_TEXT
@@ -2159,8 +2144,53 @@ void gtk_win::drawtext(cairo_t* cr, double xc, double yc, char *text, double bou
 	cairo_move_to(cr, xmult*xc, ymult*yc );
 	cairo_show_text(cr, text);
 	cairo_close_path (cr);
-	 stats->count_text++;
+	stats->count_text++;
 	
+}
+/****** End of CAIRO TOY API ********/
+
+void gtk_win::setpangofontdesc( char *_font_desc  )
+{
+	font_desc = _font_desc;
+}
+
+void gtk_win::drawpangotext(cairo_t* cr, double xc, double yc, char *text,
+							double &width, double &height,
+							PangoStyle style, double boundx )
+{
+	// for fonts, use pango cairo
+	PangoLayout *layout;
+	PangoFontDescription *desc;
+	
+	layout = pango_cairo_create_layout (cr);
+	pango_layout_set_text (layout, text, -1);
+	desc = pango_font_description_from_string (font_desc);
+	pango_font_description_set_style ( desc, style); 
+	
+	#ifdef SCALE_TEXT
+		int pointsize = pango_font_description_get_size ( desc );
+		double fsize = pointsize*max( canvas_width/(xright-xleft), canvas_height/(ybottom-ytop) );
+		pango_font_description_set_size( desc, fsize );
+	#endif
+	
+	pango_layout_set_font_description (layout, desc);
+	pango_font_description_free (desc);
+	
+	int fw, fh;
+	pango_layout_get_pixel_size (layout, &fw, &fh);
+	width = fw/xmult;
+	height = fh/ymult;
+	
+	if ( rect_off_screen(cr, xc, yc, xc+width, yc+height) || width > fabs(xmult*boundx) )	
+	{
+		return;
+	}
+	
+	cairo_move_to(cr, xmult*xc, ymult*yc );
+	pango_cairo_update_layout (cr, layout);
+	pango_cairo_show_layout (cr, layout);
+	g_object_unref (layout);
+	stats->count_text++;
 }
 
 void gtk_win::drawellipticarc(cairo_t* cr, double xcen, double ycen, double radx, double rady, 
@@ -2212,9 +2242,12 @@ void gtk_win::drawarc(cairo_t* cr, double xcen, double ycen, double rad, double 
 
 void gtk_win::fillarc(cairo_t* cr, double xcen, double ycen, double rad, double startang, double angextent)
 {
-	if (rect_off_screen(cr,xcen-rad, ycen-rad, xcen+rad ,ycen+rad))	return;	
+	if (rect_off_screen(cr,xcen-rad, ycen-rad, xcen+rad ,ycen+rad))
+	{
+		return;
+	}	
 	fillellipticarc(cr, xcen, ycen, rad, rad, startang, angextent);
-	 stats->count_f_arcs++;
+	stats->count_f_arcs++;
 }
   
 void gtk_win::drawrect(cairo_t* cr, double x1, double y1, double x2, double y2)
@@ -2233,7 +2266,7 @@ void gtk_win::drawrect(cairo_t* cr, double x1, double y1, double x2, double y2)
 	cairo_line_to(cr, xmult*x2, ymult*y1 );
 	cairo_close_path (cr);
 	cairo_stroke(cr);
-	 stats->count_d_rects++;
+	stats->count_d_rects++;
 }
 
 void gtk_win::fillrect(cairo_t* cr, double x1, double y1, double x2, double y2)
@@ -2390,6 +2423,14 @@ void gtk_win::fillroundedrect( cairo_t* cr, double x1, double y1, double x2, dou
 void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, double tolerance, vector<string>* arr, 
                                int fontsize, char* fontface, double *rgb_border, double *rgba_fill, double *rgb_text )
 {
+	double cx1 = user_x1*xmult;
+	double cy1 = user_y1*ymult;
+	cairo_user_to_device(cr, &cx1, &cy1);
+	double offsetx = user2win_x(0);
+	double offsety = user2win_y(0);
+	cx1 -= offsetx;
+	cy1 -= offsety;
+	
 	cairo_save(cr);
 	cairo_identity_matrix(cr);
 	cairo_translate (cr, user2win_x(0), user2win_y(0) );
@@ -2400,70 +2441,110 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	 	return;	
 	}
 	
-	cairo_set_font_size(cr, 1.6*fontsize);
-	cairo_select_font_face (cr, fontface, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-
-	cairo_text_extents_t extents;
-	cairo_text_extents(cr, "M", &extents);
+	char font_desc[50];
+	sprintf(font_desc, "%s Normal %d", fontface, fontsize );
 	
-	cairo_set_font_size(cr, (double)fontsize);
+	PangoLayout *layout;
+	PangoFontDescription *desc;
 	
-	// top and bottom margin
-	double tb_margin = 2.0*extents.height;
-	
-	// left and right side margin
-	double lr_margin = 2*extents.width;
-	
-	double diagbox_ascent = 30;
-	double diagbox_height = extents.height*arr->size() + 2*tb_margin;
-	double diagbox_width= -1;
+	string complete_text = "";
 	for ( unsigned int i = 0; i < arr->size(); i++ )
 	{
-		cairo_text_extents(cr, (*arr)[i].c_str(), &extents);
-		if ( diagbox_width < extents.width )
-		{
-			diagbox_width = extents.width;
+		complete_text = complete_text + (*arr)[i] + "\n"; 
+	}
+	//cerr<<complete_text<<endl;
+	layout = pango_cairo_create_layout (cr);
+	pango_layout_set_text (layout, (char*)complete_text.c_str(), -1);
+	desc = pango_font_description_from_string (font_desc);
+	pango_layout_set_spacing (layout, 5);
+	
+	pango_layout_set_font_description (layout, desc);
+	pango_font_description_free (desc);
+	
+	int fw, fh;
+	pango_layout_get_pixel_size (layout, &fw, &fh);
+	
+	// top and bottom margin
+	double tb_margin = 10;
+	
+	// left and right side margin
+	double lr_margin = 10;
+	
+	double diagbox_ascent = 10;
+	double diagbox_pointer_hw = 10;
+	double diagbox_height = fh + 2*tb_margin;
+	double diagbox_width  = fw + 2*lr_margin;
+	
+	//printf(" -- offsetx: %f, offsety: %f\n", offsetx, offsety);
+	
+	double bx1, bx2, by1, by2, ca1, ca2;
+	double sw, sh;	//section widths and heights
+	double *x, *y;
+	double xref, yref;
+
+	// for north
+	sw = canvas_width; sh = cy1 - diagbox_ascent + offsety;
+	if ( sw >= diagbox_width && sh >= diagbox_height ) {
+		by2 = cy1 - diagbox_ascent;     by1 = by2 - diagbox_height;
+		bx2 = cx1 + 0.5*diagbox_width;  bx1 = cx1 - 0.5*diagbox_width;
+		if ( bx1 < -1*offsetx ) { bx1 = -1*offsetx; bx2 = bx1 + diagbox_width; }
+		if ( bx2 > canvas_width - offsetx ) { bx2 = canvas_width - offsetx; bx1 = bx2 - diagbox_width; }
+		
+		ca1 = cx1 - diagbox_pointer_hw; ca2 = cx1 + diagbox_pointer_hw;
+		if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
+		
+		x = (double [7]){cx1, ca1, bx1, bx1, bx2, bx2, ca2};
+		y = (double [7]){cy1, by2, by2, by1, by1, by2, by2 };
+	} else { //east
+		sw = canvas_width - cx1 - diagbox_ascent - offsetx; sh = canvas_height;
+		if ( sw >= diagbox_width && sh >= diagbox_height ) {
+			bx1 = cx1 + diagbox_ascent;      bx2 = bx1 + diagbox_width;
+			by1 = cy1 - 0.5*diagbox_height;  by2 = cy1 + 0.5*diagbox_height;
+			if ( by1 < -1*offsety  ) { by1 = -1*offsety; by2 = by1+diagbox_height; }
+			if ( by2 > canvas_height - offsety ) { by2 = canvas_height - offsety; by1 = by2 - diagbox_height; }
+			
+			ca1 = cy1 - diagbox_pointer_hw; ca2 = cy1 + diagbox_pointer_hw;
+			if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
+			
+			x = (double [7]){cx1, bx1, bx1, bx2, bx2, bx1, bx1};
+			y = (double [7]){cy1, ca1, by1, by1, by2, by2, ca2};
+		}else { //south
+			sw = canvas_width; sh = canvas_height-cy1-diagbox_ascent - offsety;
+			if ( sw >= diagbox_width && sh >= diagbox_height ) {
+				by1 = cy1 + diagbox_ascent;  by2 = by1 + diagbox_height;
+				bx2 = cx1 + 0.5*diagbox_width;  bx1 = cx1 - 0.5*diagbox_width;
+				if ( bx1 < -1*offsetx ) { bx1 = -1*offsetx; bx2 = bx1 + diagbox_width; }
+				if ( bx2 > canvas_width - offsetx ) { bx2 = canvas_width - offsetx; bx1 = bx2 - diagbox_width; }
+				
+				ca1 = cx1 - diagbox_pointer_hw; ca2 = cx1 + diagbox_pointer_hw;
+				if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
+				
+				x = (double [7]){cx1, ca1, bx1, bx1, bx2, bx2, ca2};
+				y = (double [7]){cy1, by1, by1, by2, by2, by1, by1};
+			}
+			else { //west
+				bx2 = cx1 - diagbox_ascent;  bx1 = bx2 - diagbox_width;
+				by1 = cy1 - 0.5*diagbox_height;  by2 = cy1 + 0.5*diagbox_height;
+				if ( by1 < -1*offsety  ) { by1 = -1*offsety; by2 = by1+diagbox_height; }
+				if ( by2 > canvas_height - offsety ) { by2 = canvas_height - offsety; by1 = by2 - diagbox_height; }
+				
+				ca1 = cy1 - diagbox_pointer_hw; ca2 = cy1 + diagbox_pointer_hw;
+				if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
+				
+				x = (double [7]){cx1, bx2, bx2, bx1, bx1, bx2, bx2};
+				y = (double [7]){cy1, ca1, by1, by1, by2, by2, ca2};
+				
+				//show a warning message if text did not fit the canvas
+				sw = cx1-diagbox_ascent; sh = canvas_height;
+				if ( !(sw >= diagbox_width && sh >= diagbox_height) ) {
+					fprintf(stderr, "WARNING!!! COuld not fit text-balloon into canvas.");
+				}
+			}
 		}
 	}
 	
-	diagbox_width  = diagbox_width + 2*lr_margin + 20;
-	
-	//double cx1 = user2win_x(user_x1) + user_tx*xmult;
-	//double cy1 = user2win_y(user_y1) + user_ty*ymult;
-	double cx1 = user_x1*xmult;
-	double cy1 = user_y1*ymult;
-	
-	double offsetx = user2win_x(0);
-	double offsety = user2win_y(0);
-	
-	double temp_c2a = cx1 + diagbox_width;
-	double temp_c2b = cx1 - diagbox_width;
-	double cx2 = ( (temp_c2a + offsetx - canvas_width) > (0 -temp_c2b - offsetx) )?
-	               temp_c2b : temp_c2a;
-	
-	//printf("temp_c2a+...: %g, temp_c2b-...: %g and cx2: %g, offsetx: %g\n", 
-	//       temp_c2a + offsetx - canvas_width, temp_c2b - offsetx, cx2, offsetx);
-	
-	temp_c2a = cy1 + diagbox_height + diagbox_ascent;
-	temp_c2b = cy1 - diagbox_height - diagbox_ascent;
-	double cy2 = ( (temp_c2a + offsety - canvas_height) > (0 - temp_c2b - offsety) )?
-	               temp_c2b : temp_c2a;
-	
-	
-	/*double cx2 = ( cx1 + diagbox_width > canvas_width )?
-		       cx1 - diagbox_width: cx1 + diagbox_width;
-	double cy2 = ( cy1 + diagbox_height + diagbox_ascent  > canvas_height )?
-		       cy1 - diagbox_height - diagbox_ascent:
-		       cy1 + diagbox_height + diagbox_ascent;*/
-	
-	double cdelx = cx2-cx1;	
-	double c_xanchor1 = cx1 + 0.1*cdelx; 
-	double c_xanchor2 = cx1 + 0.25*cdelx;
-	double c_yanchor = ((cy1<cy2)?cy1 + diagbox_ascent :cy1 - diagbox_ascent);
-	
-	double x[7] = {cx1, c_xanchor1,      cx1, cx1, cx2,       cx2, c_xanchor2};
-	double y[7] = {cy1, c_yanchor, c_yanchor, cy2, cy2, c_yanchor, c_yanchor };
-	
+	xref = lr_margin + bx1;
+	yref = tb_margin + by1;
 	cairo_set_source_rgba(cr, rgba_fill[0], rgba_fill[1], rgba_fill[2], rgba_fill[3]);
 
 	cairo_move_to(cr, x[0], y[0] );
@@ -2485,22 +2566,14 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	cairo_set_line_join (cr, CAIRO_LINE_JOIN_ROUND);
 	cairo_stroke(cr);
 	
-	double xref = lr_margin + ((cx1 < cx2)?cx1:cx2);
-	double yref = tb_margin + ((c_yanchor < cy2)?c_yanchor:cy2);
-
 	cairo_set_source_rgb(cr, rgb_text[0], rgb_text[1], rgb_text[2]);
-	for ( unsigned int i = 0; i < arr->size(); i++ )
-	{
-		if ( (*arr)[i] == "--" )
-			draw_separator( cr, xref, yref+0.54*(i-0.5)*tb_margin, xref+diagbox_width/2, 3, rgb_text );
-		else
-		{
-			cairo_move_to( cr, xref, yref+0.54*i*tb_margin );
-			cairo_show_text(cr, (*arr)[i].c_str() );
-		}
-	}
+	cairo_move_to( cr, xref , yref );
+	pango_cairo_update_layout (cr, layout);
+	pango_cairo_show_layout (cr, layout);
+	g_object_unref (layout);
+	
 	cairo_restore(cr);
-	 stats->count_textballoons++;
+	stats->count_textballoons++;
 }
 
 void gtk_win::draw_separator( cairo_t* cr, double sep_x1, double sep_y1, double sep_x2, double height, double *rgb_sep )
@@ -2563,7 +2636,7 @@ void gtk_win::save_as()
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box), "PNG");
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box), "SVG");
 	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box), "PS");
-	//gtk_combo_box_set_active (GTK_COMBO_BOX(combo_box), 1);
+	gtk_combo_box_set_active (GTK_COMBO_BOX(combo_box), 1);
 	#else
 	combo_box = gtk_combo_box_new_text();
 	gtk_combo_box_append_text(GTK_COMBO_BOX(combo_box), "PDF");
@@ -3071,13 +3144,13 @@ void gtk_win::show_properties_dialog(  )
 	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
 	
 	#ifdef GTK+3
-		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
+		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",// %s: %5d x %5d",
 		"Canvas", gtk_widget_get_allocated_width(GTK_WIDGET(canvas)),
 		gtk_widget_get_allocated_height(GTK_WIDGET(canvas)), 
 		"Menubar", gtk_widget_get_allocated_width(GTK_WIDGET(menubar)),
 		gtk_widget_get_allocated_height(GTK_WIDGET(menubar)),
-		"Toolbar", gtk_widget_get_allocated_width(GTK_WIDGET(toolbar)),
-		gtk_widget_get_allocated_height(GTK_WIDGET(toolbar)),
+		//"Toolbar", gtk_widget_get_allocated_width(GTK_WIDGET(toolbar)),
+		//gtk_widget_get_allocated_height(GTK_WIDGET(toolbar)),
 		"Sidepane", gtk_widget_get_allocated_width(GTK_WIDGET(sidepane)),
 		gtk_widget_get_allocated_height(GTK_WIDGET(sidepane)),
 		"Statusbar", gtk_widget_get_allocated_width(GTK_WIDGET(statusbar)),
@@ -3086,10 +3159,10 @@ void gtk_win::show_properties_dialog(  )
 		gtk_widget_get_allocated_height(GTK_WIDGET(mainwin))
 		);	
 	#else
-		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
+		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",// %s: %5d x %5d",
 		"Canvas", canvas->allocation.width, canvas->allocation.height, 
 		"Menubar", menubar->allocation.width, menubar->allocation.height,
-		"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
+		//"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
 		"Sidepane",sidepane->allocation.width, sidepane->allocation.height,
 		"Statusbar", statusbar->allocation.width, statusbar->allocation.height,
 		"Top-Window", mainwin->allocation.width, mainwin->allocation.height);
@@ -3099,18 +3172,25 @@ void gtk_win::show_properties_dialog(  )
 	
 	//just to update
 	#ifdef GTK+3
-		top_gui_height = gtk_widget_get_allocated_height(GTK_WIDGET(menubar))+
-		gtk_widget_get_allocated_height(GTK_WIDGET(toolbar));
+		top_gui_height = gtk_widget_get_allocated_height(GTK_WIDGET(menubar))
+					#ifdef TOOLBAR
+		                 +gtk_widget_get_allocated_height( GTK_WIDGET(toolbar) )
+		            #endif     
+		                 ;
 	#else
-		top_gui_height = menubar->allocation.height+toolbar->allocation.height;
+		top_gui_height = menubar->allocation.height
+		#ifdef TOOLBAR
+			+toolbar->allocation.height
+		#endif	
+			;
 	#endif
 	
-	table = gtk_table_new(6, 4, 0);
+	table = gtk_table_new(5, 4, 0);
 	vector <string> arr;
 	line2arr( buffer, &arr, " ");
 	int index = 0;
 	string markup;
-	for ( int row = 0; row < 6; row++ )
+	for ( int row = 0; row < 5; row++ )
 	{
 		for ( int col = 0; col < 4; col++ )
 		{
@@ -3284,11 +3364,11 @@ void gtk_win::image_maps_highlight()
 	//}
 }
 
-void gtk_win::image_maps_show_text_balloon()
+void gtk_win::image_maps_show_text_balloon( cairo_t *cr )
 {
-	double rgb_border[3] = {192./255, 152./255, 83./255};//0.992157, 0.42353, 0};
-	double rgba_fill[4] = {252./255, 248./255, 227./255, 0.9}; 
-	double rgb_text[3] = {0./255, 0./255, 0./255};
+	double rgb_border[3] = {77./255, 77./255, 77./255};//0.992157, 0.42353, 0};
+	double rgba_fill[4] = { 0,0,0, 0.9}; 
+	double rgb_text[3] = {1, 1, 1};
 	vector<string> info;
 	for ( unsigned int i = 0; i < image_maps.size(); i++ )
 	{
@@ -3297,7 +3377,7 @@ void gtk_win::image_maps_show_text_balloon()
 			//(*info).clear(); // doubtful about this line
 			image_maps[i]->get_image_map_text_fcn(image_maps[i]->name, &info );
 			drawtextballoon(cr, image_maps[i]->event_x, image_maps[i]->event_y, image_maps[i]->tolerance, &info, 
-					     12, "Sans", rgb_border, rgba_fill, rgb_text );
+					     10, "Monospace", rgb_border, rgba_fill, rgb_text );
 		}
 	}
 }
@@ -3423,9 +3503,6 @@ bool image_map::in_bouding_box( double ex, double ey, gtk_win *_application )
 	                             && (y4i >= min(y4t, y1t) && y4i <= max(y4t, y1t) ) )
 		count++;
 	
-	//if (name == "POLO")
-	//	printf("\n-----------------------------------------------\n");
-	//printf("NAME: %-15s; count: %d; map_clicked: %d\n", name.c_str(), count, ((count%2)==1) );
 	return ((count%2)==1);
 }
 
@@ -3448,43 +3525,50 @@ style_button::style_button( string _button_text, button_fcn _act_on_button_press
 	application = _application;
 	desc = "NO IDEA!!!";
 	
-	#ifdef STYLE_BUTTONS
-		button = gtk_button_new();
-	#else 
+	#ifndef GTK+3
+		#ifdef STYLE_BUTTONS
+			button = gtk_button_new();
+		#else 
+			button = gtk_button_new_with_label( button_text.c_str() );
+		#endif
+	#else
 		button = gtk_button_new_with_label( button_text.c_str() );
 	#endif
 	
 	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(act_on_button_press), (gpointer)this );
-	gtk_button_set_relief( GTK_BUTTON(button), GTK_RELIEF_HALF );
+	//gtk_button_set_relief( GTK_BUTTON(button), GTK_RELIEF_NORMAL );
 	
-				
-	#ifdef STYLE_BUTTONS
-		button_label = gtk_label_new("");
-		gtk_label_set_width_chars( GTK_LABEL (button_label), button_text.length()+2);
+	#ifndef GTK+3
+		#ifdef STYLE_BUTTONS
+		
+			GtkStyle *style = gtk_widget_get_style(button);
+			GdkColor my_white;
+			gdk_color_parse("#528ae1", &my_white);
+			GdkColor my_orange; 
+			gdk_color_parse("#c0550d", &my_orange);
 
-		string markup = "<span face=\"Arial\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#528ae1\" size=\"x-large\">"
-			        + button_text + "</span>";
-		gtk_label_set_markup(GTK_LABEL (button_label), markup.c_str() );
-		gtk_container_add (GTK_CONTAINER (button), button_label);
-		GtkStyle *style = gtk_widget_get_style(button);
+			style->bg[GTK_STATE_PRELIGHT] = my_orange;
+			style->bg[GTK_STATE_NORMAL]   = my_white;
+			style->bg[GTK_STATE_ACTIVE]   = my_orange;
+			style->bg[GTK_STATE_SELECTED] = my_white;
+			style->bg[GTK_STATE_INSENSITIVE] = my_white;
+			style->xthickness = 2;
+		  	style->ythickness = 2;
+			gtk_widget_set_style(button, style);
+			g_signal_connect(G_OBJECT(button), "enter", G_CALLBACK(enter_button), (gpointer)this);
+			g_signal_connect(G_OBJECT(button), "leave", G_CALLBACK(leave_button), (gpointer)this);
+		
+			button_label = gtk_label_new("");
+			gtk_label_set_width_chars( GTK_LABEL (button_label), button_text.length()+2);
 
-		GdkColor my_white;
-		gdk_color_parse("#528ae1", &my_white);
-		GdkColor my_orange; 
-		gdk_color_parse("#c0550d", &my_orange);
-	
-		style->bg[GTK_STATE_PRELIGHT] = my_orange;
-		style->bg[GTK_STATE_NORMAL]   = my_white;
-		style->bg[GTK_STATE_ACTIVE]   = my_orange;
-		style->bg[GTK_STATE_SELECTED] = my_white;
-		style->bg[GTK_STATE_INSENSITIVE] = my_white;
-		style->xthickness = 2;
-	  	style->ythickness = 2;
-		gtk_widget_set_style(button, style);
-		g_signal_connect(G_OBJECT(button), "enter", G_CALLBACK(enter_button), (gpointer)this);
-		g_signal_connect(G_OBJECT(button), "leave", G_CALLBACK(leave_button), (gpointer)this);
+			string markup = "<span face=\"Verdana\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#528ae1\" size=\"large\">"
+					    + button_text + "</span>";
+			gtk_label_set_markup(GTK_LABEL (button_label), markup.c_str() );
+			gtk_container_add (GTK_CONTAINER (button), button_label);
+		#endif
 	#endif
 }
+
 
 GtkWidget* style_button::get_widget()
 {
@@ -3501,7 +3585,7 @@ void style_button::set_desc( string _desc )
 
 void style_button::act_on_enter_button_signal()
 {
-	string markup = "<span face=\"Helvetica\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#c0550d\" size=\"x-large\">"
+	string markup = "<span face=\"Verdana\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#c0550d\" size=\"large\">"
 		        + button_text + "</span>";
 	gtk_label_set_markup ( GTK_LABEL ( button_label ), markup.c_str() );
 }
@@ -3509,7 +3593,7 @@ void style_button::act_on_enter_button_signal()
 //
 void style_button::act_on_leave_button_signal()
 {
-	string markup = "<span face=\"Helvetica\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#528ae1\" size=\"x-large\">"
+	string markup = "<span face=\"Verdana\" style=\"normal\" color=\"#ffffff\" bgcolor=\"#528ae1\" size=\"large\">"
                 + button_text + "</span>";
 	gtk_label_set_markup ( GTK_LABEL (button_label), markup.c_str() );
 }
@@ -3527,24 +3611,8 @@ bgl_stats::bgl_stats( gtk_win *_application )
 	cpu_time_used = 0;
 	
 	num_cores = sysconf( _SC_NPROCESSORS_ONLN );
-	/*bool stat_available = true;
-	ifstream stat;
-	vector<string> arr;
-	stat.open("/proc/self/stat");
-	if (!stat)
-	{
-		printf("%s\n", "Could not open file for reading options\n");
-		stat_available = false;
-	}
-	if( stat_available )
-	{
-		char str[400];
-		stat.getline(str, 400);
-		line2arr(str, &arr, " ");
-		init_process_use		
-	}
-	stat.close();*/
 }
+
 void bgl_stats::reset_counts()
 {
 	count_f_ellipses = 0; count_f_arcs = 0; count_f_rects = 0; count_f_poly = 0; count_f_roundrect = 0;
