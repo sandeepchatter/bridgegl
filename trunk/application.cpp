@@ -28,6 +28,7 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #include <map>
 #include <stdio.h>
 #include <math.h>
+#include <sstream>
 
 static void drawscreen (GtkWidget *widget, cairo_t *cr);
 //static void on_key_press(GdkEventKey *event);
@@ -105,26 +106,40 @@ void get_image_map_text_from_file( string name, vector<string> *info )
 {
 	if ( !myfile.is_open() )
 	{
-		fprintf(stderr, "Could not open the file: codes.txt to display balloon texts\n");
+		fprintf(stderr, "Could not open the file to display balloon texts\n");
 		return;
 	}
 	
 	string line;
-	string start_tag = "* "+name;
-	string end_tag = "* END "+name;
+	string whitespaces (" \t\f\v\n\r");
+	string start_tag = "/* "+name;
+	string end_tag = "/* END "+name;
 	myfile.seekg (0, ifstream::beg);
 	bool to_push = false;
+	int line_no = 0;
+	stringstream ss;
 	while ( myfile.good() )
 	{
 		getline (myfile,line);
+		line_no++;
 		if ( line.length() == 0 )
 			continue;
-		else if ( line == end_tag )
+		else if ( line.find( end_tag ) != string::npos )
 			break;
-		else if ( line == start_tag )
+		else if ( line.find( start_tag ) != string::npos )
 			to_push = true;
 		else if ( to_push )
-			(*info).push_back(line);
+		{
+			size_t start = line.find_first_not_of(whitespaces);
+			if ( start != string::npos )
+			{
+				ss.str(std::string());
+				ss<<line_no;
+				size_t end = line.find_last_not_of(whitespaces);
+				(*info).push_back( ss.str() + ": " + 
+				line.substr( start, end-start+1));
+			}
+		}
 	}
 }
 
@@ -157,9 +172,6 @@ int main()
 	gtkw.add_button_to_sidepane( &change_button);
 	
 	
-	// initilaize random seed
- 	//srand (time(NULL));
-  
 	// Initialize configurations
 	for ( int i = 0; i < 25; i++ )
 	{
@@ -172,8 +184,10 @@ int main()
 	}
 	c_index = rand() % 25;
 	
-	//open codes.txt file, as it has all the balloon texts
-	myfile.open("codes.txt", ifstream::in);
+	//open *THIS* file, as it has all the balloon texts
+	myfile.open(__FILE__, ifstream::in);
+	
+	// tell gtk_win that we will use pango markups
 	
 	// intilialize the maps
 	month["Jan"] = "JANUARY";
@@ -200,13 +214,13 @@ int main()
 	image_map polo( "POLO", 50, 100, 350, 400, 5, get_image_map_text_from_file);
 	image_map donut( "DONUT", 430, 50, 670, 290, 5, get_image_map_text_from_file);
 	image_map pattern( "PATTERN", 40, 630, 40+256, 630+256, 5, get_image_map_text_from_file);
-	image_map shadowtext( "SHADOWTEXT", 30, 15, 365, 60, 5, get_image_map_text_from_file);
+	image_map shadowtext( "CAIROTEXT", 30, 15, 365, 60, 5, get_image_map_text_from_file);
 	image_map lines( "LINES", 35, 445, 345, 580, 5, get_image_map_text_from_file);
-	image_map fonts( "FONTS", 680, 25, 990, 285, 5, get_image_map_text_from_file);
+	image_map fonts( "PANGOTEXT", 680, 25, 990, 285, 5, get_image_map_text_from_file);
 	image_map rectangles( "RECTANGLES", 430, 340, 730, 640, 5, get_image_map_text_from_file);
 	image_map sectors( "SECTORS", 890-110, 460-110, 890+110, 460+110, 5, get_image_map_text_from_file);
 	image_map clock( "CLOCK", 738, 638, 962, 862, 5, get_image_map_text_from_file);
-	image_map date( "DATE", 350, 695, 700, 880, 5, get_image_map_text_from_file);
+	image_map date( "MARKUP", 340, 685, 700, 880, 5, get_image_map_text_from_file);
 	gtkw.image_maps.push_back( &polo );
 	gtkw.image_maps.push_back( &donut );
 	gtkw.image_maps.push_back( &pattern );
@@ -221,7 +235,7 @@ int main()
 	// for timer
 	time_handler(NULL);
 	first_call = false;
-	//g_timeout_add(1000, (GSourceFunc) time_handler, NULL);
+	g_timeout_add(1000, (GSourceFunc) time_handler, NULL);
 	
 	gtkw.init_graphics( "Demonstration" );
 	
@@ -231,20 +245,26 @@ int main()
 static void drawscreen (GtkWidget *widget, cairo_t *cr)
 {
 	gtkw.clearscreen( cr );
-	
-	// create custom text using CAIRO TOY API
-	gtkw.setfontface (cr, "Tahoma", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-	gtkw.setfontsize (cr, 60.0);
 
+	/* CAIROTEXT */
+	// Creation of Shadow text using Cairo Toy Text API. 
+	// ------------------------------------------------------
+	gtkw.setfontface (cr, "Tahoma", CAIRO_FONT_SLANT_NORMAL,
+	                  CAIRO_FONT_WEIGHT_NORMAL);
+	gtkw.setfontsize (cr, 60.0);
 	gtkw.setcolor (cr, 0.4, 0.4, 0.4, 1);
 	gtkw.drawtext( cr, 40, 60., "Shadow", 1000); 
-
 	gtkw.setcolor (cr, 0.1, 0.65, 0.77, 1);
 	gtkw.drawtext( cr, 37, 57, "Shadow", 1000);
-	//end custom text*/
-	
-	//random polo fills, from 50, 100 to 350, 400
-	cairo_save(cr);
+	// ------------------------------------------------------
+	/* END CAIROTEXT */
+
+	/* POLO */
+	// PRIMITIVES USED: circles
+	// A random assortment of hollow circles. Press the
+	// 'Change' button to alter their arrangement and colors. 
+	// The line width is scaled as per the current context.
+	// ------------------------------------------------------
 	gtkw.setlinewidth(cr, gtkw.user2context_x(15) );
 	for ( int i = 0; i < 25; i++ )
 	{
@@ -254,13 +274,17 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 		gtkw.setcolor(cr, red[i], green[i], blue[i], 1 );
 		gtkw.drawarc( cr, xcen[i], ycen[i], 25, 0, 360 );
 	}
-	cairo_restore(cr);
-	// end random polo fills*/
+	// ------------------------------------------------------
+	/* END POLO */
 	
-	// create pattern, a combination of cairo API and BGL.
+	/* PATTERN */
+	// Creates a gradient pattern with a combination of cairo API and BGL.
+	// Conversion to user_context is necessary to ensure that drawing is
+	// displayed correctly under all transformations.
+	// NOTE: This part might not render properly under ceratin transformations
+	// ------------------------------------------------------
     gtkw.translate_coordinates(cr, 40, 630 );
     cairo_pattern_t *pat;
-
     pat = cairo_pattern_create_linear (gtkw.user2context_x(0.0), gtkw.user2context_y(0.0),  
                                        gtkw.user2context_x(256), gtkw.user2context_y(256) );
     cairo_pattern_add_color_stop_rgba (pat, 1, 1, 1, 1, 1);
@@ -271,18 +295,23 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
     cairo_set_source (cr, pat);
     cairo_fill (cr);
     cairo_pattern_destroy (pat);
-
-    pat = cairo_pattern_create_radial ( gtkw.user2context_x(115.2), gtkw.user2context_y(102.4), gtkw.user2context_x(25.6),
-                                        gtkw.user2context_x(102.4), gtkw.user2context_y(102.4), gtkw.user2context_x(128.0) );
+    pat = cairo_pattern_create_radial ( gtkw.user2context_x(115.2), gtkw.user2context_y(102.4),
+    									gtkw.user2context_x(25.6), gtkw.user2context_x(102.4),
+    									gtkw.user2context_y(102.4), gtkw.user2context_x(128.0) );
     cairo_pattern_add_color_stop_rgba (pat, 0, red[c_index], green[c_index], blue[c_index], 1);
     cairo_pattern_add_color_stop_rgba (pat, 1, 0, 0, 0, 1);
     cairo_set_source (cr, pat);
     gtkw.fillarc (cr, 128.0, 128.0, 76.8, 0, 360);
     cairo_pattern_destroy (pat);
     gtkw.translate_coordinates(cr, -40, -630 );
-    // end pattern
+    
+    // ------------------------------------------------------
+    /* END PATTERN */
 	
-	// start lines
+	/* LINES */
+	// PRIMITIVES USED: lines
+	// Drawing lines of different styles and widths
+	// ------------------------------------------------------
 	gtkw.setcolor(cr, 0,0,0,1);
 	gtkw.setlinestyle(cr, 0);
 	gtkw.setlinewidth(cr,2);
@@ -306,12 +335,18 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 	double dashes4[2] = {5, 5};
 	gtkw.setlinestyle(cr, 2, dashes4);
 	gtkw.drawline(cr, 40, 575, 340, 575);
-	// end lines*/
+	// ------------------------------------------------------
+	/* END LINES */
 	
-	// start donut
+	/* DONUT */
+	// PRIMITIVES USED: ellipses
+	// A donut shape drawn to demonstrate the use of cairo_rotate()
+	// and drawellipticarc(). Note that we first translate the origin to
+	// the centre of the shape, then rotate by 10 degrees for each new
+	// ellipse, and finally translate the origin back to (0,0).  
+	// ------------------------------------------------------
 	gint i;
 	gtkw.translate_coordinates(cr, 550., 170.);
-	//gtkw.setcolor(cr, 0.992157, 0.42353, 0, 1);
 	gtkw.setcolor(cr, blue[c_index], red[c_index], green[c_index], 1);
 	gtkw.setlinewidth(cr, 1);
 	gtkw.setlinestyle(cr, 0);
@@ -323,23 +358,45 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 		cairo_restore(cr);
 	}
 	gtkw.translate_coordinates(cr, -550., -170.);
-	// end donut*/
+	// ------------------------------------------------------
+	/* END DONUT */	
 	
-	
-	// Use PangoCairo layout to write text
+	/* PANGOTEXT */
+	// Use PangoCairo layout to render text. This is the
+	// recommended way of drawing text on canvas. Note that
+	// we explicitly disable the makup_enable flag for faster 
+	// processing. Also, different text styles can be set as
+	// - Normal or Bold: using 'Sans Normal 16' or 'Sans Bold 26'
+	//   in setpangofontdesc().
+	// - Italic: using 'Helvetica Normal 18' in setpangofontdesc()
+	//   or PANGO_STYLE_ITALIC while calling drawpangotext().
+	// - Bold+Italic:  use 'Sans Bold 26' in  setpangofontdesc()
+	//  and PANGO_STYLE_ITALIC while calling drawpangotext().
+	// Note that PANGO_STYLE_* takes precedence over 'Sans * 26'
+	// in the code. 
+	// ------------------------------------------------------
+	gtkw.pango_markup_enable(0);
 	double fw = 0, fh = 0;
 	gtkw.setcolor(cr, 0, 0, 0, 1);
 	char text[][25] = {"Sans Normal 8","Sans Normal 16","Sans Bold 26",
-	"Verdana Normal 20","Georgia Normal 8","Serif Normal 20","Monospace Normal 20","Tahoma Normal 20"} ;
+	"Verdana Normal 20","Georgia Normal 8","Serif Normal 20",
+	"Monospace Normal 20","Tahoma Normal 20", "Helvetica Normal 18"} ;
 	double c = 40;
-	for( int i = 0; i < 8; i++ )
+	for( int i = 0; i < 9; i++ )
 	{
 		c = c + fh;
 		gtkw.setpangofontdesc(text[i]);
-		gtkw.drawpangotext(cr, 690., c, text[i], fw, fh, (PangoStyle) (i%3), 5000);
+		gtkw.drawpangotext(cr, 690., c, text[i], fw, fh,
+		(PangoStyle)(i%3), 5000);
 	}
+	// ------------------------------------------------------
+	/* END PANGOTEXT */
 	
-	//start rectangles
+	/* RECTANGLES */
+	// PRIMITIVES USED: rectangles
+	// A random assortment of hollow rectangles. Press the
+	// 'Change' button to alter their arrangement and colors.
+	// ------------------------------------------------------
 	gtkw.setlinewidth(cr, gtkw.user2context_x(10) );
 	for( int i = 0; i < 16; i++ )
 	{
@@ -352,9 +409,15 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 		gtkw.drawrect(cr, -25, -25, 25, 25);
 		cairo_restore(cr);
 	}
-	//end rectangles*/
+	// ------------------------------------------------------
+	/* END RECTANGLES */
 	
-	//start sectors
+	/* SECTORS */
+	// PRIMITIVES USED: arcs
+	// Using fillarc() with different random colors to draw
+	// a complete circles. The colors change when 'Change'
+	// button is pressed. 
+	// ------------------------------------------------------
 	gtkw.setcolor(cr, 0.2, 0.2, 0.2, 1);
 	gtkw.fillarc(cr, 892, 462, 110, 0, 360);
 	for( int i = 0; i < 8; i++ )
@@ -362,9 +425,13 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 		gtkw.setcolor(cr, red[i*3], green[i*3], blue[i*3], 1);
 		gtkw.fillarc(cr, 890, 460, 110, i*45, (i+1)*45);
 	}
-	//end sectors*/
+	// ------------------------------------------------------
+	/* END SECTORS */
 	
-	// show time as a clock widget
+	/* CLOCK */
+	// A clock to display present time. Demonstrates calling a function
+	// repeatedly, and showing progress by redrawing the canvas. Repeated
+	// calling is done using g_timeout_add() in main()
 	double seconds_angle = atoi(time_str[5].c_str())*6.0;
 	gtkw.setlinewidth(cr, 3);
 	if (seconds_angle != 0)
@@ -374,7 +441,6 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 	}
 	else
 		seconds_angle = 360;
-	
 	gtkw.setcolor(cr, red[c_index], blue[c_index], green[c_index], 1);
 	gtkw.drawarc(cr, 850, 750., 110, 0-90, seconds_angle-90);
 	c = 750; gtkw.setpangofontdesc("Helvetica Bold 60");
@@ -383,22 +449,44 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 	gtkw.drawpangotext(cr, c, 695., ":", fw, fh, PANGO_STYLE_NORMAL, 300);
 	c += fw; 
 	gtkw.drawpangotext(cr, c, 695., (char*)time_str[4].c_str(), fw, fh, PANGO_STYLE_NORMAL, 300);
+	/* END CLOCK */
 	
-	//show date and year
-	char buffer[2];
-	sprintf (buffer, "%02d", atoi(time_str[2].c_str()));
+	/* MARKUP */
+	// In order for zooming and other transforms to work,
+	// function setpangofontdesc() should always be used to
+	// set font description instead of 'font' attribute of <span>.
+	// Note that when pango-markups are enabled, the argument
+	// PANGO_STYLE_* is ignored. Also, <span> attributes have the
+	// last say whether a font will be Normal, Bold, Italic or Oblique.
+	// So, please dont use the 'size' or 'font' attribute in <span>, use
+	// setpangofontdesc() insatead.
+	gtkw.pango_markup_enable(1);
 	c = 685.; 
 	double u = 345;
-	gtkw.setpangofontdesc("Tahoma Normal 60");
-	gtkw.drawpangotext(cr, u, c, month[time_str[1]], fw, fh, PANGO_STYLE_NORMAL, 800);
-	c += fh-30;
-	gtkw.setpangofontdesc("Tahoma Normal 80");
-	gtkw.drawpangotext(cr, u, c, buffer, fw, fh, PANGO_STYLE_NORMAL, 300);
-	u+=fw;
-	gtkw.setpangofontdesc("Tahoma Normal 55");
-	gtkw.drawpangotext(cr, u, c, (char*)time_str[6].substr(0,4).c_str(), fw, fh, PANGO_STYLE_NORMAL, 700);
-	gtkw.setpangofontdesc("Tahoma Normal 40");
-	gtkw.drawpangotext(cr, u, c+fh-25, day[time_str[0]], fw, fh, PANGO_STYLE_NORMAL, 700);
+	
+	char markup_text[][300] = {
+	"Font_desc = 'Serif Normal 15'",
+	"<span underline='double' fgcolor='#e47821'>underline='double' fgcolor='#e47821'</span>",
+	"<span bgcolor='#147861' fgcolor='white'>bgcolor='#147861' fgcolor='white'</span>",
+	"Now Font_desc = 'Georgia Normal 15'",
+	"<span font_weight='800'>font_weight='800'</span>",
+	"<span font_weight='200'>Some sup:<tt>(a+b)<sup>2</sup></tt> Sub: x<sub>1</sub></span>",
+	"<span strikethrough='true' underline='error' underline_color='red'>strikethrough text</span>",
+	"<span letter_spacing='1000'>5 standard entities: &amp; &lt; &gt; &quot; &apos;</span>"};
+	
+	for ( int i = 0; i < 8; i++ )
+	{
+		if ( i == 0 )
+			gtkw.setpangofontdesc("Serif Normal 15");
+		else if ( i == 3 )
+			gtkw.setpangofontdesc("Georgia Normal 15");
+		gtkw.drawpangotext(cr, u, c, markup_text[i], fw, fh, PANGO_STYLE_NORMAL, 5000);
+		c += fh;
+	} 
+	/* END MARKUP */
+	
+	// disable markups
+	gtkw.pango_markup_enable(0);
 }
 
 /*
