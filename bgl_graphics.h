@@ -55,7 +55,7 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 
 //#define DEBUG
 //#define BOUNDING_BOX
-//#define STYLE_BUTTONS
+#define STYLE_BUTTONS
 //#define FOLLOW_MOUSE_POINTER
 #define SCALE_TEXT
 //#define TOOLBAR
@@ -139,6 +139,10 @@ class gtk_win
 	
 	//for font description using pangocairo
 	char *font_desc;
+	bool enable_pango_markup;
+	
+	// for text-balloon-coordinates of bounding box
+	double bx1, bx2, by1, by2;
 	
 	// GtkSpin buttons for preferences
 	GtkWidget *zoomin_spinner, *zoomout_spinner;
@@ -375,6 +379,7 @@ class gtk_win
 	void setlinestyle(cairo_t* cr, int num_dashes, double *dashes);
 	void setlinewidth(cairo_t* cr, double linewidth);
 	void drawline(cairo_t* cr, double x1, double y1, double x2, double y2);
+	void pango_markup_enable(bool enable);
 	void setfontsize(cairo_t* cr,int pointsize);
 	void setfontface( cairo_t* cr, char* fontface, cairo_font_slant_t slant, cairo_font_weight_t weight);
 	void drawtext(cairo_t* cr, double xc, double yc, char *text, double boundx);

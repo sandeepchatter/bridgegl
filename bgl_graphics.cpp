@@ -29,10 +29,30 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 		return g_win->mainwin_draw_event (cr);
 	}
 	gboolean gtk_win::mainwin_draw_event (cairo_t *cr)
+#else
+	static gboolean mainwin_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
+	{	
+		gtk_win* g_win = (gtk_win*) data;
+		return g_win->mainwin_expose_event (event);
+	}
+	
+	gboolean gtk_win::mainwin_expose_event (GdkEventExpose *event)
+#endif
 	{
 		int x1 = 0, y1 = 0;
-		int x2  = gtk_widget_get_allocated_width ( GTK_WIDGET(mainwin) );
-		int y2 = gtk_widget_get_allocated_height( GTK_WIDGET(mainwin) );
+		#ifdef GTK+3 
+			int x2  = gtk_widget_get_allocated_width ( GTK_WIDGET(mainwin) );
+			int y2 = gtk_widget_get_allocated_height( GTK_WIDGET(mainwin) );			
+		#else
+			cairo_t *cr;
+			cr = gdk_cairo_create (mainwin->window);
+			// set a clip region for the expose event 
+			cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
+			cairo_clip (cr);
+			int x2 = mainwin->allocation.width;
+			int y2 = mainwin->allocation.height;
+		#endif
+		
 		cairo_set_source_rgb(cr, 177/255.0, 177/255.0, 177/255.0);
 		setlinewidth(cr, 2);
 		cairo_move_to(cr, x1, y1 );
@@ -51,34 +71,12 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 		cairo_move_to(cr, 0, top_gui_height  );
 		cairo_line_to(cr, x2, top_gui_height );
 		cairo_stroke(cr);
-		
-		stats->count_expose_event++;
-		return false;
-	}
-#else
-	static gboolean mainwin_expose (GtkWidget *widget, GdkEventExpose *event, gpointer data)
-	{	
-		gtk_win* g_win = (gtk_win*) data;
-		return g_win->mainwin_expose_event (event);
-	}
-	
-	gboolean gtk_win::mainwin_expose_event (GdkEventExpose *event)
-	{
-		cairo_t *cr;
-		cr = gdk_cairo_create (mainwin->window);
-
-		// set a clip region for the expose event 
-		cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
-		cairo_clip (cr);
-
-		cairo_set_source_rgb(cr, 0.82745, 0.8549, 0.88627);
-		cairo_paint(cr);
-
+		#ifndef GTK+2
 		cairo_destroy (cr);
+		#endif
 		stats->count_expose_event++;
 		return false;
 	}
-#endif
 
 
 #ifdef GTK+3
@@ -148,6 +146,11 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 		cairo_restore (cr);
 	#endif
 
+	// flush to ensure all writing to the image was done: not needed it seems
+	//cairo_surface_flush ( cairo_get_target(cr) );
+	
+	
+		
 	#ifndef GTK+3
 		cairo_destroy (cr);
 	#endif
@@ -301,43 +304,16 @@ static gboolean mouse_position_tracker(GtkWidget *widget, GdkEventMotion *event,
 
 gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event)
 {
-	GdkModifierType state;
-
-	if (event->is_hint)
-		gdk_window_get_pointer (event->window, &worldx, &worldy, &state);
-	else
-	{
-		worldx = event->x;
-		worldy = event->y;
-	}
-	
-	if ( worldx < sdp_width+3 && worldy < 45+5*40)
-	{
-		//cairo_t *cr;
-		//cr = gdk_cairo_create ( gtk_widget_get_window(GTK_WIDGET(mainwin)) );
-
-		for( int i = 0; i < 6; i++ )
-		{
-			if ( worldy > 45+i*40 && worldy < 45+(i+1)*40 )
-			{
-				// set a clip region for the expose event 
-				/*cairo_rectangle (cr, 0, 45+i*40,  sdp_width, 40);
-				cairo_clip (cr);
-
-				cairo_set_source_rgb(cr, 161/255.0, 114/255.0, 210/255.0);
-				cairo_paint(cr);
-				*/
-				style_index = i;
-				gtk_widget_queue_draw_area ( mainwin,  0, 0,  sdp_width+3, canvas_height);
-				return TRUE;
-			}
-		}
-		//cairo_destroy (cr);
-	}
-
-	
-	
 	#ifdef FOLLOW_MOUSE_POINTER
+		GdkModifierType state;
+
+		if (event->is_hint)
+			gdk_window_get_pointer (event->window, &worldx, &worldy, &state);
+		else
+		{
+			worldx = event->x;
+			worldy = event->y;
+		}
 		update_statusbar_msg();
 	#endif
 
@@ -360,9 +336,9 @@ gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event)
 		z_xright  = win2user_x( event->x );
 		z_ybottom = win2user_y( event->y );
 		
-		/* The follwoing code segment supposedly should mark the zooming rectnagle
+		/* The follwoing code segment supposedly should mark the zooming rectangle
 		as dirty so that only the area within it is redrawn. but it is not working, so 
-		commented out.
+		commented out. //
 		cr = gdk_cairo_create( canvas->window );
 		cs = cairo_get_target (cr);
 		cairo_surface_mark_dirty_rectangle (cs, min(z_xleft, z_xright), min(z_ytop, z_ybottom), 
@@ -1114,6 +1090,7 @@ void gtk_win::paint_canvas(cairo_t *cr)
 	//this->cr = cr;
 	
 	drawscreen (canvas, cr);
+	
 	// image maps
 	image_maps_store_transformed_coordinates();
 	if ( highlight_image_maps )
@@ -1128,7 +1105,7 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	stats->start_time = time(NULL);
 	
 	name = "BridgeGL";
-	version = "1.4";	
+	version = "1.6 (beta)";	
 	
 	style_index = -1;
 	win_current_width  = onset_width;
@@ -1141,6 +1118,8 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	drawscreen = _drawscreen;
 	window_zoom_mode_on = false;
 	font_desc = "Sans Normal 12";
+	enable_pango_markup = 0;
+	bx1 = 0; bx2 = 0; by1 = 0; by2 = 0;
 	
 	// These are desired value,s actual values are
 	// stored after the widgets are associated with a screen  
@@ -2149,6 +2128,10 @@ void gtk_win::drawtext(cairo_t* cr, double xc, double yc, char *text, double bou
 }
 /****** End of CAIRO TOY API ********/
 
+void gtk_win::pango_markup_enable( bool enable  )
+{
+	enable_pango_markup = enable;
+}
 void gtk_win::setpangofontdesc( char *_font_desc  )
 {
 	font_desc = _font_desc;
@@ -2163,16 +2146,43 @@ void gtk_win::drawpangotext(cairo_t* cr, double xc, double yc, char *text,
 	PangoFontDescription *desc;
 	
 	layout = pango_cairo_create_layout (cr);
-	pango_layout_set_text (layout, text, -1);
+	
+	if ( enable_pango_markup )
+	{
+		char *plain_text;
+		GError *error=NULL;
+		PangoAttrList *attr_list;
+		bool success = pango_parse_markup( text, strlen(text), 0, &attr_list,
+		&plain_text, NULL, &error);
+		if ( success )
+		{
+			pango_layout_set_text (layout, plain_text, -1);
+			pango_layout_set_attributes( layout, attr_list); 
+			pango_attr_list_unref ( attr_list );
+		}
+		else
+		{
+			pango_layout_set_text (layout, text, -1);
+			fprintf(stderr, "Parsing failed: %s\nDisplaying text as plain text\n", error->message);
+		}
+	}
+	else
+	{
+		pango_layout_set_text (layout, text, -1);
+	}
+	
 	desc = pango_font_description_from_string (font_desc);
-	pango_font_description_set_style ( desc, style); 
+	if ( !enable_pango_markup )
+	{
+		//cerr<<"here "<<text<<endl;
+		pango_font_description_set_style ( desc, style); 
+	}
 	
 	#ifdef SCALE_TEXT
 		int pointsize = pango_font_description_get_size ( desc );
 		double fsize = pointsize*max( canvas_width/(xright-xleft), canvas_height/(ybottom-ytop) );
 		pango_font_description_set_size( desc, fsize );
 	#endif
-	
 	pango_layout_set_font_description (layout, desc);
 	pango_font_description_free (desc);
 	
@@ -2447,6 +2457,7 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	PangoLayout *layout;
 	PangoFontDescription *desc;
 	
+	
 	string complete_text = "";
 	for ( unsigned int i = 0; i < arr->size(); i++ )
 	{
@@ -2454,10 +2465,32 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	}
 	//cerr<<complete_text<<endl;
 	layout = pango_cairo_create_layout (cr);
-	pango_layout_set_text (layout, (char*)complete_text.c_str(), -1);
-	desc = pango_font_description_from_string (font_desc);
 	pango_layout_set_spacing (layout, 5);
 	
+	
+	if ( enable_pango_markup )
+	{
+		char *plain_text;
+		GError *error=NULL;
+		PangoAttrList *attr_list;
+		bool success = pango_parse_markup( complete_text.c_str(), complete_text.length(), 0, &attr_list,
+		&plain_text, NULL, &error);
+		if ( success )
+		{
+			pango_layout_set_text (layout, plain_text, -1);
+			pango_layout_set_attributes( layout, attr_list); 
+			pango_attr_list_unref ( attr_list );
+		}
+		else
+		{
+			pango_layout_set_text (layout, (char*)complete_text.c_str(), -1);
+			fprintf(stderr, "Parsing failed: %s\ninterpreting as plain text\n", error->message);
+		}
+	}
+	else
+		pango_layout_set_text (layout, (char*)complete_text.c_str(), -1);
+	
+	desc = pango_font_description_from_string (font_desc);
 	pango_layout_set_font_description (layout, desc);
 	pango_font_description_free (desc);
 	
@@ -2477,7 +2510,7 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	
 	//printf(" -- offsetx: %f, offsety: %f\n", offsetx, offsety);
 	
-	double bx1, bx2, by1, by2, ca1, ca2;
+	double ca1, ca2;
 	double sw, sh;	//section widths and heights
 	double *x, *y;
 	double xref, yref;
@@ -2537,7 +2570,7 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 				//show a warning message if text did not fit the canvas
 				sw = cx1-diagbox_ascent; sh = canvas_height;
 				if ( !(sw >= diagbox_width && sh >= diagbox_height) ) {
-					fprintf(stderr, "WARNING!!! COuld not fit text-balloon into canvas.");
+					fprintf(stderr, "\nWARNING!!! COuld not fit text-balloon into canvas.\n");
 				}
 			}
 		}
@@ -3348,38 +3381,39 @@ void gtk_win::image_maps_store_transformed_coordinates()
 
 void gtk_win::image_maps_highlight()
 {
-	//if ( highlight_image_maps )
-	//{
-		for ( unsigned int i = 0; i < image_maps.size(); i++ )
-		{
-			setcolor(cr, 0.1, 0.65, 0.77, 0.2);
-			fillrect(cr, image_maps[i]->x1, image_maps[i]->y1, image_maps[i]->x2, image_maps[i]->y2 );
-			setcolor(cr, 0.1, 0.65, 0.77, 1);
-			setlinewidth(cr, 2);
-			drawrect(cr, image_maps[i]->x1, image_maps[i]->y1, image_maps[i]->x2, image_maps[i]->y2 );
-			setfontface(cr, "Monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-			setfontsize(cr, 20);
-			drawtext(cr, image_maps[i]->x1+20, image_maps[i]->y2+20, (char*)image_maps[i]->name.c_str(), 500);
-		}
-	//}
+	for ( unsigned int i = 0; i < image_maps.size(); i++ )
+	{
+		setcolor(cr, 0.1, 0.65, 0.77, 0.2);
+		fillrect(cr, image_maps[i]->x1, image_maps[i]->y1, image_maps[i]->x2, image_maps[i]->y2 );
+		setcolor(cr, 0.1, 0.65, 0.77, 1);
+		setlinewidth(cr, 2);
+		drawrect(cr, image_maps[i]->x1, image_maps[i]->y1, image_maps[i]->x2, image_maps[i]->y2 );
+		setfontface(cr, "Monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+		setfontsize(cr, 20);
+		drawtext(cr, image_maps[i]->x1+20, image_maps[i]->y2+20, (char*)image_maps[i]->name.c_str(), 500);
+	}
 }
 
 void gtk_win::image_maps_show_text_balloon( cairo_t *cr )
 {
 	double rgb_border[3] = {77./255, 77./255, 77./255};//0.992157, 0.42353, 0};
-	double rgba_fill[4] = { 0,0,0, 0.9}; 
+	double rgba_fill[4] = { 0,0,0, 0.8}; 
 	double rgb_text[3] = {1, 1, 1};
 	vector<string> info;
+	int imap_index = -1;
 	for ( unsigned int i = 0; i < image_maps.size(); i++ )
 	{
 		if ( image_maps[i]->to_show_info )
 		{
-			//(*info).clear(); // doubtful about this line
+			//info.clear(); // doubtful about this line
 			image_maps[i]->get_image_map_text_fcn(image_maps[i]->name, &info );
-			drawtextballoon(cr, image_maps[i]->event_x, image_maps[i]->event_y, image_maps[i]->tolerance, &info, 
-					     10, "Monospace", rgb_border, rgba_fill, rgb_text );
+			imap_index = i;
 		}
 	}
+	
+	if ( imap_index >= 0 )
+		drawtextballoon(cr, image_maps[imap_index]->event_x, image_maps[imap_index]->event_y,
+		image_maps[imap_index]->tolerance, &info, 10, "Monospace", rgb_border, rgba_fill, rgb_text );
 }
 
 /*********** START IMAGE-MAPS CLASS*************/
