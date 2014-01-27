@@ -39,6 +39,7 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <algorithm>
 
 #ifdef GTK+3
 #include <gdk/gdkkeysyms-compat.h>
@@ -384,8 +385,7 @@ class gtk_win
 	void setfontface( cairo_t* cr, char* fontface, cairo_font_slant_t slant, cairo_font_weight_t weight);
 	void drawtext(cairo_t* cr, double xc, double yc, char *text, double boundx);
 	void setpangofontdesc( char *_font_desc );
-	void drawpangotext(cairo_t* cr, double xc, double yc, char *text, double &width, double &height,
-					   PangoStyle style, double boundx);
+	void drawpangotext(cairo_t* cr, double xc, double yc, char *text, double &width, double &height, double boundx);
 	void drawarc(cairo_t* cr, double xcen, double ycen, double rad, double startang, double angextent);
 	void fillarc(cairo_t* cr, double xcen, double ycen, double rad, double startang, double angextent);
 	void drawellipticarc(cairo_t* cr, double xcen, double ycen, double radx, double rady, double startang, double angextent);

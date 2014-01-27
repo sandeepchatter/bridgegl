@@ -39,10 +39,10 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 	gboolean gtk_win::mainwin_expose_event (GdkEventExpose *event)
 #endif
 	{
-		int x1 = 0, y1 = 0;
+		int x1 = 0, y1 = 0; 
 		#ifdef GTK+3 
 			int x2  = gtk_widget_get_allocated_width ( GTK_WIDGET(mainwin) );
-			int y2 = gtk_widget_get_allocated_height( GTK_WIDGET(mainwin) );			
+			int y2 = gtk_widget_get_allocated_height( GTK_WIDGET(mainwin) );
 		#else
 			cairo_t *cr;
 			cr = gdk_cairo_create (mainwin->window);
@@ -55,21 +55,31 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 		
 		cairo_set_source_rgb(cr, 177/255.0, 177/255.0, 177/255.0);
 		setlinewidth(cr, 2);
-		cairo_move_to(cr, x1, y1 );
+		/*cairo_move_to(cr, x1, y1 );
 		cairo_line_to(cr, x1, y2 );
 		cairo_line_to(cr, x2, y2 );
 		cairo_line_to(cr, x2, y1 );
 		cairo_close_path (cr);
-		cairo_stroke(cr);
-		setlinewidth(cr, 1);
+		cairo_stroke(cr);*/
 		cairo_move_to(cr, sdp_width+2, top_gui_height );
 		cairo_line_to(cr, sdp_width+2, y2-stbar_height );
 		cairo_stroke(cr);
-		cairo_move_to(cr, 0, y2-stbar_height  );
-		cairo_line_to(cr, x2, y2-stbar_height );
-		cairo_stroke(cr);
+		setlinewidth(cr, 12);
+		cairo_pattern_t *pat;
+    	pat = cairo_pattern_create_linear (0, top_gui_height-6, 0, top_gui_height );
+    	cairo_pattern_add_color_stop_rgba (pat, 0, 131/255.0, 132/255.0, 132/255.0,  1);
+    	cairo_pattern_add_color_stop_rgba (pat, 1, 224/255.0, 225/255.0, 226/255.0, 0);
+    	cairo_set_source (cr, pat);
 		cairo_move_to(cr, 0, top_gui_height  );
 		cairo_line_to(cr, x2, top_gui_height );
+		cairo_stroke(cr);		
+		cairo_pattern_destroy (pat);
+		pat = cairo_pattern_create_linear (0, y2-stbar_height, 0, y2-stbar_height+6 );
+    	cairo_pattern_add_color_stop_rgba (pat, 1, 131/255.0, 132/255.0, 132/255.0,  1);
+    	cairo_pattern_add_color_stop_rgba (pat, 0, 224/255.0, 225/255.0, 226/255.0, 0);
+    	cairo_set_source (cr, pat);
+    	cairo_move_to(cr, 0, y2-stbar_height  );
+		cairo_line_to(cr, x2, y2-stbar_height );
 		cairo_stroke(cr);
 		#ifndef GTK+2
 		cairo_destroy (cr);
@@ -117,7 +127,8 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 	user_tx = 0; user_ty = 0;
 	cairo_translate (cr, user2win_x(0), user2win_y(0) );
 	cairo_save(cr);
-	
+	//cairo_translate (cr, -100, -100);
+	//cairo_scale(cr, 2, 2);
 	// paint the canvas as per transformed and rotated coordinates
 	paint_canvas(cr);
 
@@ -125,10 +136,9 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 	
 	if (in_window_zoom_mode)
 	{
-		cairo_set_source_rgba(cr, 0.882353, 0.67843, 0.12549, 0.4);
-		fillrect( cr, z_xleft, z_ytop, z_xright, z_ybottom);
 		cairo_set_source_rgb(cr, 0.70980, 0.572549, 0.207843);
-		cairo_set_line_width(cr, 2);
+		double dashes4[2] = {8, 8};
+		setlinestyle(cr, 2, dashes4);
 		drawrect( cr, z_xleft, z_ytop, z_xright, z_ybottom);
 	}
 	#ifdef BOUNDING_BOX
@@ -520,6 +530,11 @@ void gtk_win::set_xy_translate_and_scale()
 		rx_translate = saved_xright;
 		ry_translate = 0;
 	}
+	if ( stats->count_textballoons >= 0 )
+	{
+		for ( int i = 0; i < image_maps.size(); i++ )
+			image_maps[i]->to_show_info = FALSE;
+	}
 
 }
 static void rotate_clockwise_fcn(GtkWidget *widget, gpointer data)
@@ -590,7 +605,8 @@ gboolean gtk_win::mainwin_mouse_button_event (GdkEventButton *event)
 	
 	if (!going_into_window_zoom_mode && !coming_out_of_window_zoom_mode)
 	{
-		bool to_redraw = false;	
+		
+		bool to_redraw = false;
 		for ( unsigned int i = 0; i < image_maps.size(); i++)
 		{
 			to_redraw = to_redraw | image_maps[i]->to_show_info; 
@@ -1296,7 +1312,7 @@ void gtk_win::init_graphics( char* windowtitle )
 	}
 	
 	omnibox = gtk_hbox_new(FALSE, 1);
-	gtk_widget_set_size_request (omnibox, canvas_width+sdp_width, 30);
+	gtk_widget_set_size_request (omnibox, canvas_width+sdp_width, 36);
 	
 	searchentry = gtk_entry_new ();
 	searchbox = gtk_hbox_new (FALSE, 1);
@@ -1306,7 +1322,7 @@ void gtk_win::init_graphics( char* windowtitle )
 	create_custom_menu();
 	gtk_box_pack_start(GTK_BOX(omnibox), menubar, FALSE, FALSE, 0);
 	#endif
-	gtk_box_pack_end(GTK_BOX(omnibox), searchbox, FALSE, FALSE, 0);
+	gtk_box_pack_end(GTK_BOX(omnibox), searchbox, FALSE, FALSE, 1);
 	
 	gtk_box_pack_start(GTK_BOX(vbox), omnibox, FALSE, TRUE, 0);
 	#ifdef TOOLBAR
@@ -2139,7 +2155,7 @@ void gtk_win::setpangofontdesc( char *_font_desc  )
 
 void gtk_win::drawpangotext(cairo_t* cr, double xc, double yc, char *text,
 							double &width, double &height,
-							PangoStyle style, double boundx )
+							double boundx )
 {
 	// for fonts, use pango cairo
 	PangoLayout *layout;
@@ -2163,7 +2179,7 @@ void gtk_win::drawpangotext(cairo_t* cr, double xc, double yc, char *text,
 		else
 		{
 			pango_layout_set_text (layout, text, -1);
-			fprintf(stderr, "Parsing failed: %s\nDisplaying text as plain text\n", error->message);
+			fprintf(stderr, "\n***Parsing failed: %s\nDisplaying text as plain text\n", error->message);
 		}
 	}
 	else
@@ -2172,12 +2188,7 @@ void gtk_win::drawpangotext(cairo_t* cr, double xc, double yc, char *text,
 	}
 	
 	desc = pango_font_description_from_string (font_desc);
-	if ( !enable_pango_markup )
-	{
-		//cerr<<"here "<<text<<endl;
-		pango_font_description_set_style ( desc, style); 
-	}
-	
+		
 	#ifdef SCALE_TEXT
 		int pointsize = pango_font_description_get_size ( desc );
 		double fsize = pointsize*max( canvas_width/(xright-xleft), canvas_height/(ybottom-ytop) );
@@ -2435,11 +2446,11 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 {
 	double cx1 = user_x1*xmult;
 	double cy1 = user_y1*ymult;
-	cairo_user_to_device(cr, &cx1, &cy1);
+	//cairo_user_to_device(cr, &cx1, &cy1);
 	double offsetx = user2win_x(0);
 	double offsety = user2win_y(0);
-	cx1 -= offsetx;
-	cy1 -= offsety;
+	//cx1 -= offsetx;
+	//cy1 -= offsety;
 	
 	cairo_save(cr);
 	cairo_identity_matrix(cr);
@@ -2456,13 +2467,45 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	
 	PangoLayout *layout;
 	PangoFontDescription *desc;
+	string entity[4]     = {   "<",   ">",    "\"",    "'"};
+	string entity_alt[4] = {"&lt;","&gt;","&quot;","&apos;"};
 	
-	
-	string complete_text = "";
-	for ( unsigned int i = 0; i < arr->size(); i++ )
+	string complete_text = "", verbatim_text = "";
+	if ( enable_pango_markup )
 	{
-		complete_text = complete_text + (*arr)[i] + "\n"; 
+		for ( unsigned int i = 0; i < arr->size(); i++ )
+		{
+			if ( (*arr)[i].find("<verbatim>") != string::npos )
+			{
+				verbatim_text = ""; i++;
+				for ( ; i < arr->size(); i++ )
+				{
+					if ( (*arr)[i].find("</verbatim>") != string::npos )
+						break;
+					verbatim_text = verbatim_text + (*arr)[i] + "\n";
+				}
+				size_t loc;
+				for( int j = 0; j < 4; j++ )
+				{
+					loc = verbatim_text.find(entity[j]);
+					while ( loc != string::npos )
+					{
+						verbatim_text.replace(loc, 1, entity_alt[j]);
+						loc = verbatim_text.find(entity[j]);
+					}
+				}
+				complete_text = complete_text + verbatim_text;
+				continue;
+			}
+			complete_text = complete_text + (*arr)[i] + "\n"; 
+		}
 	}
+	else
+		for ( unsigned int i = 0; i < arr->size(); i++ )
+		{
+			complete_text = complete_text + (*arr)[i] + "\n"; 
+		}
+	
 	//cerr<<complete_text<<endl;
 	layout = pango_cairo_create_layout (cr);
 	pango_layout_set_spacing (layout, 5);
@@ -2508,11 +2551,9 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	double diagbox_height = fh + 2*tb_margin;
 	double diagbox_width  = fw + 2*lr_margin;
 	
-	//printf(" -- offsetx: %f, offsety: %f\n", offsetx, offsety);
-	
 	double ca1, ca2;
 	double sw, sh;	//section widths and heights
-	double *x, *y;
+	double x[7], y[7];
 	double xref, yref;
 
 	// for north
@@ -2526,8 +2567,8 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 		ca1 = cx1 - diagbox_pointer_hw; ca2 = cx1 + diagbox_pointer_hw;
 		if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
 		
-		x = (double [7]){cx1, ca1, bx1, bx1, bx2, bx2, ca2};
-		y = (double [7]){cy1, by2, by2, by1, by1, by2, by2 };
+		x[0] = cx1; x[1] = ca1; x[2] = bx1; x[3] = bx1; x[4] = bx2; x[5] = bx2; x[6] = ca2;
+		y[0] = cy1; y[1] = by2; y[2] = by2; y[3] = by1; y[4] = by1; y[5] = by2; y[6] = by2; 
 	} else { //east
 		sw = canvas_width - cx1 - diagbox_ascent - offsetx; sh = canvas_height;
 		if ( sw >= diagbox_width && sh >= diagbox_height ) {
@@ -2539,8 +2580,8 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 			ca1 = cy1 - diagbox_pointer_hw; ca2 = cy1 + diagbox_pointer_hw;
 			if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
 			
-			x = (double [7]){cx1, bx1, bx1, bx2, bx2, bx1, bx1};
-			y = (double [7]){cy1, ca1, by1, by1, by2, by2, ca2};
+			x[0] = cx1; x[1] = bx1; x[2] = bx1; x[3] = bx2; x[4] = bx2; x[5] = bx1; x[6] = bx1;
+			y[0] = cy1; y[1] = ca1; y[2] = by1; y[3] = by1; y[4] = by2; y[5] = by2; y[6] = ca2; 
 		}else { //south
 			sw = canvas_width; sh = canvas_height-cy1-diagbox_ascent - offsety;
 			if ( sw >= diagbox_width && sh >= diagbox_height ) {
@@ -2552,8 +2593,8 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 				ca1 = cx1 - diagbox_pointer_hw; ca2 = cx1 + diagbox_pointer_hw;
 				if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
 				
-				x = (double [7]){cx1, ca1, bx1, bx1, bx2, bx2, ca2};
-				y = (double [7]){cy1, by1, by1, by2, by2, by1, by1};
+				x[0] = cx1; x[1] = ca1; x[2] = bx1; x[3] = bx1; x[4] = bx2; x[5] = bx2; x[6] = ca2;
+				y[0] = cy1; y[1] = by1; y[2] = by1; y[3] = by2; y[4] = by2; y[5] = by1; y[6] = by1; 
 			}
 			else { //west
 				bx2 = cx1 - diagbox_ascent;  bx1 = bx2 - diagbox_width;
@@ -2564,9 +2605,9 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 				ca1 = cy1 - diagbox_pointer_hw; ca2 = cy1 + diagbox_pointer_hw;
 				if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
 				
-				x = (double [7]){cx1, bx2, bx2, bx1, bx1, bx2, bx2};
-				y = (double [7]){cy1, ca1, by1, by1, by2, by2, ca2};
-				
+				x[0] = cx1; x[1] = bx2; x[2] = bx2; x[3] = bx1; x[4] = bx1; x[5] = bx2; x[6] = bx2;
+				y[0] = cy1; y[1] = ca1; y[2] = by1; y[3] = by1; y[4] = by2; y[5] = by2; y[6] = ca2;
+				 
 				//show a warning message if text did not fit the canvas
 				sw = cx1-diagbox_ascent; sh = canvas_height;
 				if ( !(sw >= diagbox_width && sh >= diagbox_height) ) {
@@ -2599,6 +2640,7 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	cairo_set_line_join (cr, CAIRO_LINE_JOIN_ROUND);
 	cairo_stroke(cr);
 	
+
 	cairo_set_source_rgb(cr, rgb_text[0], rgb_text[1], rgb_text[2]);
 	cairo_move_to( cr, xref , yref );
 	pango_cairo_update_layout (cr, layout);
@@ -3397,7 +3439,7 @@ void gtk_win::image_maps_highlight()
 void gtk_win::image_maps_show_text_balloon( cairo_t *cr )
 {
 	double rgb_border[3] = {77./255, 77./255, 77./255};//0.992157, 0.42353, 0};
-	double rgba_fill[4] = { 0,0,0, 0.8}; 
+	double rgba_fill[4] = { 0,0,0, 0.9}; 
 	double rgb_text[3] = {1, 1, 1};
 	vector<string> info;
 	int imap_index = -1;
