@@ -20,8 +20,6 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #ifndef _BGL_GRAPHICS_H_
 #define _BGL_GRAPHICS_H_
 
-//#define GTK+3
-
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 #include <cairo.h>
@@ -54,15 +52,44 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #define min(a,b) ((a) > (b)? (b) : (a))
 #endif
 
+/* debug mode, verbose output */
 //#define DEBUG
+
+/* draws a bouding box around any shape drawn with the help of gtk_win class
+ functions  */
 //#define BOUNDING_BOX
+
+/* Stylize side pane buttons when compiled with GTK+2. CSS is used to 
+stylize the UI in GTK+3.  
+*/
 #define STYLE_BUTTONS
+
+/* Follows the mouse pointer and updates the statubar with its location*/
 //#define FOLLOW_MOUSE_POINTER
+
+/* Scales text as user zooms. Without it, the text behaviour is undefined
+under transforms.*/
 #define SCALE_TEXT
+
+/* Detemines whether the toolbar should be attcahed to the UI or not. 
+*/
 //#define TOOLBAR
+
+/* Detemines whether the toolbar should be attcahed to the UI or not. Note that
+most of the functionality is defined through menus and toolbars, So define at
+least one of macros in header file, preferably the MENU_BAR macro.  
+*/
 #define MENU_BAR
+
+/* If GTK+3 is being used, should the CSS be used to customize UI. Uncomment for
+native look and feel
+*/ 
 #define APPLY_CSS
-#define UNDECORATED_DIALOG
+
+/* All system dialogs (not the main window) are undecorated if the following
+macro is defined 
+*/
+//#define UNDECORATED_DIALOG
 
 
 #define CONV_DEG_TO_RAD 0.01745329252  // pi/180
@@ -89,17 +116,8 @@ class image_map;
 class style_button;
 class bgl_stats;
 
-// the maximum slope, beyond which the the slope is considerd to be infinity.
-// the minimum slope, beyond which the the slope is considerd to be zero.
-//extern double max_slope, min_slope;
-
-// shear related variables
-//extern double horizontal_shear;
-//extern double vertical_shear;
-
 class gtk_win
 {
-	int style_index;
 	string name, version;
 	
 	cairo_surface_t* cs;
@@ -144,6 +162,10 @@ class gtk_win
 	
 	// for text-balloon-coordinates of bounding box
 	double bx1, bx2, by1, by2;
+	
+	// for canvas drag-loookup
+	double start_x, start_y, start_xleft, start_xright, start_ytop, start_ybottom;
+	bool canvas_drag_mode;
 	
 	// GtkSpin buttons for preferences
 	GtkWidget *zoomin_spinner, *zoomout_spinner;
@@ -555,13 +577,5 @@ class bgl_stats
 	void get_event_count( char *buffer );
 	void get_resource_usage( char *buffer );
 };
-
-/*class features
-{
-	public:
-	gtk_win *application;
-	
-};*/
-
 #endif
 

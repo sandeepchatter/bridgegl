@@ -49,38 +49,36 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 			// set a clip region for the expose event 
 			cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
 			cairo_clip (cr);
-			int x2 = mainwin->allocation.width;
 			int y2 = mainwin->allocation.height;
 		#endif
 		
 		cairo_set_source_rgb(cr, 177/255.0, 177/255.0, 177/255.0);
 		setlinewidth(cr, 2);
-		/*cairo_move_to(cr, x1, y1 );
-		cairo_line_to(cr, x1, y2 );
-		cairo_line_to(cr, x2, y2 );
-		cairo_line_to(cr, x2, y1 );
-		cairo_close_path (cr);
-		cairo_stroke(cr);*/
 		cairo_move_to(cr, sdp_width+2, top_gui_height );
 		cairo_line_to(cr, sdp_width+2, y2-stbar_height );
 		cairo_stroke(cr);
 		setlinewidth(cr, 12);
-		cairo_pattern_t *pat;
-    	pat = cairo_pattern_create_linear (0, top_gui_height-6, 0, top_gui_height );
-    	cairo_pattern_add_color_stop_rgba (pat, 0, 131/255.0, 132/255.0, 132/255.0,  1);
-    	cairo_pattern_add_color_stop_rgba (pat, 1, 224/255.0, 225/255.0, 226/255.0, 0);
-    	cairo_set_source (cr, pat);
-		cairo_move_to(cr, 0, top_gui_height  );
-		cairo_line_to(cr, x2, top_gui_height );
-		cairo_stroke(cr);		
-		cairo_pattern_destroy (pat);
-		pat = cairo_pattern_create_linear (0, y2-stbar_height, 0, y2-stbar_height+6 );
-    	cairo_pattern_add_color_stop_rgba (pat, 1, 131/255.0, 132/255.0, 132/255.0,  1);
-    	cairo_pattern_add_color_stop_rgba (pat, 0, 224/255.0, 225/255.0, 226/255.0, 0);
-    	cairo_set_source (cr, pat);
-    	cairo_move_to(cr, 0, y2-stbar_height  );
-		cairo_line_to(cr, x2, y2-stbar_height );
-		cairo_stroke(cr);
+		#ifdef GTK+3
+		#ifdef APPLY_CSS
+		    cairo_pattern_t *pat;
+        	pat = cairo_pattern_create_linear (0, top_gui_height-6, 0, top_gui_height );
+        	cairo_pattern_add_color_stop_rgba (pat, 0, 131/255.0, 132/255.0, 132/255.0,  1);
+        	cairo_pattern_add_color_stop_rgba (pat, 1, 224/255.0, 225/255.0, 226/255.0, 0);
+        	cairo_set_source (cr, pat);
+		    cairo_move_to(cr, 0, top_gui_height  );
+		    cairo_line_to(cr, x2, top_gui_height );
+		    cairo_stroke(cr);		
+		    cairo_pattern_destroy (pat);
+		    pat = cairo_pattern_create_linear (0, y2-stbar_height, 0, y2-stbar_height+6 );
+        	cairo_pattern_add_color_stop_rgba (pat, 1, 131/255.0, 132/255.0, 132/255.0,  1);
+        	cairo_pattern_add_color_stop_rgba (pat, 0, 224/255.0, 225/255.0, 226/255.0, 0);
+        	cairo_set_source (cr, pat);
+        	cairo_move_to(cr, 0, y2-stbar_height  );
+		    cairo_line_to(cr, x2, y2-stbar_height );
+		    cairo_stroke(cr);
+		#endif
+		#endif
+		
 		#ifndef GTK+2
 		cairo_destroy (cr);
 		#endif
@@ -120,18 +118,15 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 		cairo_rectangle (cr, event->area.x, event->area.y,  event->area.width, event->area.height);
 		cairo_clip (cr);
 	#endif
-	
 	this->cr = cr;
-
+	
 	cairo_identity_matrix(cr);
 	user_tx = 0; user_ty = 0;
 	cairo_translate (cr, user2win_x(0), user2win_y(0) );
 	cairo_save(cr);
-	//cairo_translate (cr, -100, -100);
 	//cairo_scale(cr, 2, 2);
 	// paint the canvas as per transformed and rotated coordinates
 	paint_canvas(cr);
-
 	cairo_restore(cr);
 	
 	if (in_window_zoom_mode)
@@ -158,8 +153,6 @@ gboolean gtk_win::canvas_expose_event (GdkEventExpose *event)
 
 	// flush to ensure all writing to the image was done: not needed it seems
 	//cairo_surface_flush ( cairo_get_target(cr) );
-	
-	
 		
 	#ifndef GTK+3
 		cairo_destroy (cr);
@@ -358,7 +351,15 @@ gboolean gtk_win::mainwin_mouse_move_event(GdkEventMotion *event)
 		
 		gtk_widget_queue_draw_area ( canvas,  tx, ty, canvas_width, canvas_height);
 	}
-	
+	else if( canvas_drag_mode )
+	{
+		double delx = start_x - ( start_xleft + (event->x - sdp_width - 3)/xmult);
+		double dely = start_y - ( start_ytop  + (event->y - top_gui_height - 2)/ymult);
+		
+		xleft = start_xleft+delx; xright = start_xright+delx;
+		ytop  = start_ytop+dely; ybottom = start_ybottom+dely;
+		redraw();
+	}
 	
 
 	if (user_mouse_position_active)
@@ -436,7 +437,7 @@ void gtk_win::chk_mainwin_state_event(GdkEventWindowState *event)
 	}
 	else if ( !make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
 	{
-		fprintf(stderr, "Window Exited Fullscreen\n");
+		//fprintf(stderr, "Window Exited Fullscreen\n");
 	}
 	else if ( make_fullscreen && !(event->new_window_state && GDK_WINDOW_STATE_FULLSCREEN) )
 	{
@@ -605,15 +606,32 @@ gboolean gtk_win::mainwin_mouse_button_event (GdkEventButton *event)
 	
 	if (!going_into_window_zoom_mode && !coming_out_of_window_zoom_mode)
 	{
-		
-		bool to_redraw = false;
-		for ( unsigned int i = 0; i < image_maps.size(); i++)
+		if (event->button == 1) 
 		{
-			to_redraw = to_redraw | image_maps[i]->to_show_info; 
-			to_redraw = to_redraw | image_maps[i]->try_set_event_coordinates(event->x,event->y, this);
+			bool to_redraw = false;
+			for ( unsigned int i = 0; i < image_maps.size(); i++)
+			{
+				to_redraw = to_redraw | image_maps[i]->to_show_info; 
+				to_redraw = to_redraw | image_maps[i]->try_set_event_coordinates(event->x,event->y, this);
+			}
+			if ( to_redraw )
+				redraw();
 		}
-		if ( to_redraw )
-			redraw();
+		else if ( event->button == 3 && !canvas_drag_mode)
+		{
+			start_x = win2user_x(event->x);
+			start_y = win2user_y(event->y);
+			start_xleft = xleft; start_xright  = xright;
+			start_ytop  = ytop;  start_ybottom = ybottom;
+			canvas_drag_mode =  1;
+		}
+		else if ( canvas_drag_mode && event->type == GDK_BUTTON_RELEASE)
+		{
+			canvas_drag_mode = 0;
+			start_x = 0; start_y = 0;
+			start_xleft = xleft; start_xright = xright;
+			start_ytop  = ytop; start_ybottom = ybottom;
+		}
 	}
 
 	if (user_mouse_press_active && event->type == GDK_BUTTON_PRESS)
@@ -1104,9 +1122,8 @@ void gtk_win::paint_canvas(cairo_t *cr)
 	0., 0.);
 	cairo_transform(cr, &matrix);
 	//this->cr = cr;
-	
 	drawscreen (canvas, cr);
-	
+
 	// image maps
 	image_maps_store_transformed_coordinates();
 	if ( highlight_image_maps )
@@ -1123,7 +1140,6 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	name = "BridgeGL";
 	version = "1.6 (beta)";	
 	
-	style_index = -1;
 	win_current_width  = onset_width;
 	win_current_height = onset_height;
 	tx = 0;
@@ -1136,6 +1152,10 @@ gtk_win::gtk_win( draw_gtk _drawscreen, int onset_width, int onset_height  )
 	font_desc = "Sans Normal 12";
 	enable_pango_markup = 0;
 	bx1 = 0; bx2 = 0; by1 = 0; by2 = 0;
+	canvas_drag_mode = 0;
+	start_x = 0; start_y = 0;
+	start_xleft = xleft; start_xright = xright;
+	start_ytop  = ytop; start_ybottom = ybottom;
 	
 	// These are desired value,s actual values are
 	// stored after the widgets are associated with a screen  
@@ -1311,20 +1331,23 @@ void gtk_win::init_graphics( char* windowtitle )
 		gtk_box_pack_start(GTK_BOX(sidepane), sidepane_buttons[i]->get_widget(), FALSE, FALSE, 0);
 	}
 	
-	omnibox = gtk_hbox_new(FALSE, 1);
-	gtk_widget_set_size_request (omnibox, canvas_width+sdp_width, 36);
-	
-	searchentry = gtk_entry_new ();
-	searchbox = gtk_hbox_new (FALSE, 1);
-	gtk_box_pack_start (GTK_BOX (searchbox), searchentry, TRUE, TRUE, 0);
+	// omnibox and search entry are for future work
+	//omnibox = gtk_hbox_new(FALSE, 1);
+	//gtk_widget_set_size_request (omnibox, canvas_width+sdp_width, 30);
+	//searchentry = gtk_entry_new ();
+	//searchbox = gtk_hbox_new (FALSE, 1);
+	//gtk_box_pack_start (GTK_BOX (searchbox), searchentry, TRUE, TRUE, 0);
 	
 	#ifdef MENU_BAR
 	create_custom_menu();
-	gtk_box_pack_start(GTK_BOX(omnibox), menubar, FALSE, FALSE, 0);
+	gtk_widget_set_size_request (menubar, canvas_width+sdp_width, 36);
+	gtk_box_pack_start(GTK_BOX(vbox), menubar, FALSE, TRUE, 0);
 	#endif
-	gtk_box_pack_end(GTK_BOX(omnibox), searchbox, FALSE, FALSE, 1);
 	
-	gtk_box_pack_start(GTK_BOX(vbox), omnibox, FALSE, TRUE, 0);
+	//gtk_box_pack_start(GTK_BOX(omnibox), menubar, FALSE, FALSE, 6);
+	//gtk_box_pack_end(GTK_BOX(omnibox), searchbox, FALSE, FALSE, 1);
+	//gtk_box_pack_start(GTK_BOX(vbox), omnibox, FALSE, TRUE, 0);
+	
 	#ifdef TOOLBAR
 	create_toolbar();
 	gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 0);
@@ -1349,16 +1372,18 @@ void gtk_win::init_graphics( char* windowtitle )
 	#endif
 	g_signal_connect(mainwin, "button_press_event", G_CALLBACK(mouse_button_callback), (gpointer)this);
 	g_signal_connect(mainwin, "button_release_event", G_CALLBACK(mouse_button_callback), (gpointer)this);
-
+	
 	// Whenever exposed, do the drawing on canvas as per user function
 	#ifdef GTK+3
 		g_signal_connect (G_OBJECT (canvas), "draw", G_CALLBACK (canvas_draw),  (gpointer)this );
 	#else
 		g_signal_connect (GTK_OBJECT (canvas), "expose-event", G_CALLBACK (canvas_expose),  (gpointer)this );
 	#endif
-	
+
 	// connecting window state event
 	g_signal_connect(G_OBJECT(mainwin),"window-state-event", G_CALLBACK(chk_mainwin_state_event_fcn), (gpointer)this);
+	
+	//gtk_widget_set_double_buffered (canvas, FALSE);
 	
 	// make the icon
 	GdkPixbuf *pixbuf;
