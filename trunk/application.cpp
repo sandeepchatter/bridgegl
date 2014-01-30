@@ -222,7 +222,7 @@ int main()
 	image_map rectangles( "RECTANGLES", 430, 340, 730, 640, 5, get_image_map_text_from_file);
 	image_map sectors( "SECTORS", 890-110, 460-110, 890+110, 460+110, 5, get_image_map_text_from_file);
 	image_map clock( "CLOCK", 738, 638, 962, 862, 5, get_image_map_text_from_file);
-	image_map date( "MARKUPTEXT", 340, 685, 700, 880, 5, get_image_map_text_from_file);
+	image_map date( "MARKUPTEXT", 315, 675, 700, 880, 5, get_image_map_text_from_file);
 	gtkw.image_maps.push_back( &polo );
 	gtkw.image_maps.push_back( &donut );
 	gtkw.image_maps.push_back( &pattern );
@@ -407,12 +407,12 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 	Note that the rectangles are rotated with-respect-to their centres.</span>
 	------------------------------------------------------
 	<verbatim> ** this line will be removed from text-balloon display */
-	gtkw.setlinewidth(cr, gtkw.user2context_x(10) );
-	for( int i = 0; i < 16; i++ )
+	gtkw.setlinewidth(cr, gtkw.user2context_x(15) );
+	for( int i = 0; i < 25; i++ )
 	{
 		cairo_save(cr);
 		gtkw.translate_coordinates(cr, ycen[i]+330, xcen[i]+290  );
-		cairo_rotate(cr, i*M_PI/16);
+		cairo_rotate(cr, i*M_PI/25);
 		gtkw.setcolor(cr, 0.2, 0.2, 0.2, 1);
 		gtkw.drawrect(cr, -23, -23, 27, 27);
 		gtkw.setcolor(cr, 1-red[i], 1-green[i], 1-blue[i], 1);
@@ -483,8 +483,8 @@ static void drawscreen (GtkWidget *widget, cairo_t *cr)
 	------------------------------------------------------
 	<verbatim> ** this line will be removed from text-balloon display */ 
 	gtkw.pango_markup_enable(1);
-	c = 685.; 
-	double u = 345;
+	c = 675.; 
+	double u = 315.;
 	char markup_text[][300] = {
 	"Font_desc = 'Serif Normal 15'",
 	"<span underline='double' fgcolor='#e47821'>underline='double' "
