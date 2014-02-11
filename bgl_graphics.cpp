@@ -22,6 +22,7 @@ along with this program. If not, get it here: "http://www.gnu.org/licenses/".
 #include <math.h>
 #include <string.h>
 
+
 #ifdef GTK+3
 	static gboolean mainwin_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
 	{	
@@ -211,6 +212,23 @@ gboolean gtk_win::mainwin_configure_event (GdkEventConfigure *event)
 	win_current_width = event->width;
 	win_current_height = event->height;
 	stats->count_configure_event++;
+	#ifdef GTK+3
+		stbar_height = gtk_widget_get_allocated_height( GTK_WIDGET(statusbar) );
+		sdp_width    = gtk_widget_get_allocated_width ( GTK_WIDGET(sidepane) );
+		top_gui_height = gtk_widget_get_allocated_height( GTK_WIDGET(menubar) )
+					#ifdef TOOLBAR
+		                 +gtk_widget_get_allocated_height( GTK_WIDGET(toolbar) )
+		            #endif     
+		                 ;
+	#else
+		stbar_height = statusbar->allocation.height;
+		sdp_width = sidepane->allocation.width;
+		top_gui_height = menubar->allocation.height
+		#ifdef TOOLBAR
+			+toolbar->allocation.height
+		#endif	
+			;
+	#endif
 	return false;
 }
 
@@ -1420,7 +1438,8 @@ void gtk_win::init_graphics( char* windowtitle )
 		#endif	
 			;
 	#endif
-	 // Enter the main event loop, and wait for user interaction 
+	
+	// Enter the main event loop, and wait for user interaction 
 	gtk_main (); //*/
 	
 	delete stats;
@@ -1565,10 +1584,10 @@ void gtk_win::create_custom_menu()
 	GDK_r, (GdkModifierType) (GDK_CONTROL_MASK | GDK_SHIFT_MASK), GTK_ACCEL_VISIBLE);
 	
 	gtk_menu_item_set_submenu(GTK_MENU_ITEM(image), imagemenu);
-	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_translateUp);
+	/*gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_translateUp);
 	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_translateDown);
 	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_translateLeft);
-	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_translateRight);
+	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_translateRight);*/
 	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_sep3);
 	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_shearHplus);
 	gtk_menu_shell_append(GTK_MENU_SHELL(imagemenu), mi_shearHminus);
@@ -2080,16 +2099,6 @@ void gtk_win::setcolor(cairo_t* cr, double red, double green, double blue, doubl
 	cairo_set_source_rgba(cr, red, green, blue, alpha);
 }
 
-void gtk_win::setradialgradient(cairo_t* cr, double cx0, double cy0, double r0, double cx1, double cy1, double r1)
-{
-	
-}
-
-void gtk_win::setlineargradient(cairo_t* cr, double cx0, double cy0, double cx1, double cy1)
-{
-	
-}
-
 void gtk_win::setlinestyle(cairo_t* cr, int linestyle)
 {
 	double dashes[3][2] =
@@ -2580,7 +2589,8 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	double sw, sh;	//section widths and heights
 	double x[7], y[7];
 	double xref, yref;
-
+	direction dir;
+    
 	// for north
 	sw = canvas_width; sh = cy1 - diagbox_ascent + offsety;
 	if ( sw >= diagbox_width && sh >= diagbox_height ) {
@@ -2593,7 +2603,8 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 		if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
 		
 		x[0] = cx1; x[1] = ca1; x[2] = bx1; x[3] = bx1; x[4] = bx2; x[5] = bx2; x[6] = ca2;
-		y[0] = cy1; y[1] = by2; y[2] = by2; y[3] = by1; y[4] = by1; y[5] = by2; y[6] = by2; 
+		y[0] = cy1; y[1] = by2; y[2] = by2; y[3] = by1; y[4] = by1; y[5] = by2; y[6] = by2;
+		dir = NORTH;
 	} else { //east
 		sw = canvas_width - cx1 - diagbox_ascent - offsetx; sh = canvas_height;
 		if ( sw >= diagbox_width && sh >= diagbox_height ) {
@@ -2607,6 +2618,7 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 			
 			x[0] = cx1; x[1] = bx1; x[2] = bx1; x[3] = bx2; x[4] = bx2; x[5] = bx1; x[6] = bx1;
 			y[0] = cy1; y[1] = ca1; y[2] = by1; y[3] = by1; y[4] = by2; y[5] = by2; y[6] = ca2; 
+			dir = EAST;
 		}else { //south
 			sw = canvas_width; sh = canvas_height-cy1-diagbox_ascent - offsety;
 			if ( sw >= diagbox_width && sh >= diagbox_height ) {
@@ -2619,7 +2631,8 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 				if ( ca1 < 0 ){ ca1 = 0; ca2 = 2*diagbox_pointer_hw;}
 				
 				x[0] = cx1; x[1] = ca1; x[2] = bx1; x[3] = bx1; x[4] = bx2; x[5] = bx2; x[6] = ca2;
-				y[0] = cy1; y[1] = by1; y[2] = by1; y[3] = by2; y[4] = by2; y[5] = by1; y[6] = by1; 
+				y[0] = cy1; y[1] = by1; y[2] = by1; y[3] = by2; y[4] = by2; y[5] = by1; y[6] = by1;
+				dir = SOUTH; 
 			}
 			else { //west
 				bx2 = cx1 - diagbox_ascent;  bx1 = bx2 - diagbox_width;
@@ -2632,6 +2645,7 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 				
 				x[0] = cx1; x[1] = bx2; x[2] = bx2; x[3] = bx1; x[4] = bx1; x[5] = bx2; x[6] = bx2;
 				y[0] = cy1; y[1] = ca1; y[2] = by1; y[3] = by1; y[4] = by2; y[5] = by2; y[6] = ca2;
+				dir = WEST;
 				 
 				//show a warning message if text did not fit the canvas
 				sw = cx1-diagbox_ascent; sh = canvas_height;
@@ -2644,8 +2658,26 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	
 	xref = lr_margin + bx1;
 	yref = tb_margin + by1;
+	
+	//shadow
+	cairo_set_source_rgba(cr, 0.5, 0.5, 0.5, 0.6);
+	cairo_move_to(cr, x[2], y[2] );
+	for( unsigned int i=3; i <= 5; i++ )
+	{
+	    if ( dir == NORTH )
+		    cairo_line_to(cr, x[i]+4, y[i]-4 );
+		else if ( dir == EAST )
+		    cairo_line_to(cr, x[i]+4, y[i]+4 );
+		else if ( dir == SOUTH )
+		    cairo_line_to(cr, x[i]+4, y[i]+4 );
+		else if ( dir == WEST )
+		    cairo_line_to(cr, x[i]-4, y[i]-4 );
+	}
+	cairo_close_path (cr);
+	cairo_fill(cr);
+	
+	//fill
 	cairo_set_source_rgba(cr, rgba_fill[0], rgba_fill[1], rgba_fill[2], rgba_fill[3]);
-
 	cairo_move_to(cr, x[0], y[0] );
 	for( unsigned int i=1; i < 7; i++ )
 	{
@@ -2654,18 +2686,16 @@ void gtk_win::drawtextballoon( cairo_t *cr, double user_x1, double user_y1, doub
 	cairo_close_path (cr);
 	cairo_fill(cr);
 	
+	//selective border
 	cairo_set_source_rgb(cr, rgb_border[0], rgb_border[1], rgb_border[2]);
-	cairo_move_to(cr, x[0], y[0] );
+	cairo_move_to(cr, x[5], y[5] );
 	setlinewidth(cr, 2);
-	for( unsigned int i=1; i < 7; i++ )
-	{
-		cairo_line_to(cr, x[i], y[i] );
-	}
-	cairo_close_path (cr);
-	cairo_set_line_join (cr, CAIRO_LINE_JOIN_ROUND);
+	cairo_line_to(cr, x[6], y[6] );
+	cairo_line_to(cr, x[0], y[0] );
+	cairo_line_to(cr, x[1], y[1] );	
+	cairo_line_to(cr, x[2], y[2] );
 	cairo_stroke(cr);
 	
-
 	cairo_set_source_rgb(cr, rgb_text[0], rgb_text[1], rgb_text[2]);
 	cairo_move_to( cr, xref , yref );
 	pango_cairo_update_layout (cr, layout);
@@ -3244,13 +3274,18 @@ void gtk_win::show_properties_dialog(  )
 	gtk_box_pack_start (GTK_BOX (main_vbox), frame, TRUE, TRUE, 10);
 	
 	#ifdef GTK+3
-		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",// %s: %5d x %5d",
+		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
+		#ifdef TOOLBAR
+		//	" %s: %5d x %5d",
+		#endif
 		"Canvas", gtk_widget_get_allocated_width(GTK_WIDGET(canvas)),
 		gtk_widget_get_allocated_height(GTK_WIDGET(canvas)), 
 		"Menubar", gtk_widget_get_allocated_width(GTK_WIDGET(menubar)),
 		gtk_widget_get_allocated_height(GTK_WIDGET(menubar)),
-		//"Toolbar", gtk_widget_get_allocated_width(GTK_WIDGET(toolbar)),
-		//gtk_widget_get_allocated_height(GTK_WIDGET(toolbar)),
+		#ifdef TOOLBAR
+		//	"Toolbar", gtk_widget_get_allocated_width(GTK_WIDGET(toolbar)),
+		//	gtk_widget_get_allocated_height(GTK_WIDGET(toolbar)),
+		#endif
 		"Sidepane", gtk_widget_get_allocated_width(GTK_WIDGET(sidepane)),
 		gtk_widget_get_allocated_height(GTK_WIDGET(sidepane)),
 		"Statusbar", gtk_widget_get_allocated_width(GTK_WIDGET(statusbar)),
@@ -3259,31 +3294,21 @@ void gtk_win::show_properties_dialog(  )
 		gtk_widget_get_allocated_height(GTK_WIDGET(mainwin))
 		);	
 	#else
-		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",// %s: %5d x %5d",
+		sprintf(buffer, "%s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d %s: %5d x %5d",
+		#ifdef TOOLBAR
+		//	" %s: %5d x %5d",
+		#endif
 		"Canvas", canvas->allocation.width, canvas->allocation.height, 
 		"Menubar", menubar->allocation.width, menubar->allocation.height,
-		//"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
+		#ifdef TOOLBAR	
+		//	"Toolbar", toolbar->allocation.width, toolbar->allocation.height,
+		#endif
 		"Sidepane",sidepane->allocation.width, sidepane->allocation.height,
 		"Statusbar", statusbar->allocation.width, statusbar->allocation.height,
 		"Top-Window", mainwin->allocation.width, mainwin->allocation.height);
 	#endif
 	
 	hbox = gtk_hbox_new (FALSE, 10);
-	
-	//just to update
-	#ifdef GTK+3
-		top_gui_height = gtk_widget_get_allocated_height(GTK_WIDGET(menubar))
-					#ifdef TOOLBAR
-		                 +gtk_widget_get_allocated_height( GTK_WIDGET(toolbar) )
-		            #endif     
-		                 ;
-	#else
-		top_gui_height = menubar->allocation.height
-		#ifdef TOOLBAR
-			+toolbar->allocation.height
-		#endif	
-			;
-	#endif
 	
 	table = gtk_table_new(5, 4, 0);
 	vector <string> arr;
@@ -3463,9 +3488,9 @@ void gtk_win::image_maps_highlight()
 
 void gtk_win::image_maps_show_text_balloon( cairo_t *cr )
 {
-	double rgb_border[3] = {77./255, 77./255, 77./255};//0.992157, 0.42353, 0};
-	double rgba_fill[4] = { 0,0,0, 0.9}; 
-	double rgb_text[3] = {1, 1, 1};
+	double rgb_border[3] = {187./255, 191./255, 194./255};//0.992157, 0.42353, 0};
+	double rgba_fill[4] = { 234/255.0, 239/255.0, 242/255.0, 1}; 
+	double rgb_text[3] = {77/255.0, 78/255.0, 117/255.0};
 	vector<string> info;
 	int imap_index = -1;
 	for ( unsigned int i = 0; i < image_maps.size(); i++ )
